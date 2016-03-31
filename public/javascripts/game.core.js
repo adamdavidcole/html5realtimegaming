@@ -19,6 +19,8 @@ var player1;
 var moveVelocity = 100;
 var rotateVelocity = 200;
 
+var gameReady = false;
+
 function preload() {
     game.load.image('player', 'images/player.png');
     game.load.image('arena', 'images/arenaStroke.png');
@@ -67,22 +69,25 @@ function create() {
     players.enableBody = true;
     players.physicsBodyType = Phaser.Physics.P2JS;
 
-    player1 = createPlayer();
     cursors = game.input.keyboard.createCursorKeys();
     cursors.rotateRight = game.input.keyboard.addKey(Phaser.Keyboard.D);
     cursors.rotateLeft = game.input.keyboard.addKey(Phaser.Keyboard.A);
     cursors.spacebar =  game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
 
-    initiateTimer();
+    gameReady = true;
+    //initiateTimer();
 };
 
 // update the game state
 function update() {
     players.children.forEach(function (player) {
         // update the player and check if it is in bounds
-        updatePlayer(player, cursors);
+        if (player.userid === userid) {
+            updatePlayer(player, cursors);
+        }
         if (!isPlayerWithinArena(player)) player.kill();
     });
+    sendUpdatedPosition();
 };
 
 var updatePlayer = function(player, controls) {
@@ -121,8 +126,10 @@ var updatePlayer = function(player, controls) {
     }
 };
 
-var createPlayer = function() {
-    var player = players.create(game.width / 2, game.height / 2 + 200, 'player');
+var createPlayer = function(userid, x, y) {
+    console.log("creating a player", userid);
+    console.log("x: ", x, "y: ", y);
+    var player = players.create(x, y, 'player');
     player.scale.setTo(.20, .20);
     player.body.setCircle(player.width / 2);
     player.body.addRectangle(125, 15);
@@ -130,16 +137,28 @@ var createPlayer = function() {
     player.body.collides([playersCollisionGroup, puckCollisionGroup]);
     player.body.debug = true;
     player.body.onBeginContact.add(function(bodyA, bodyB, shapeA, shapeB) {
-        if (shapeA.constructor.name === "Circle") {
+        if (shapeA.constructor.name === "Circle" && shapeB.constructor.name === "Circle") {
             player.body.debug = false;
             player.kill();
         }
     });
     player.body.mass = 2;
     player.body.damping = .8;
+    player.userid = userid;
     //player.body.angularDamping = 0;
     //player.body.fixedRotation = true;
     return player;
+};
+
+var removePlayer = function(userid) {
+    console.log(userid);
+    players.children.forEach(function (player) {
+       if (player.userid === userid) {
+           console.log("match found");
+           player.body.debug = false;
+           player.kill();
+       }
+    });
 };
 
 
@@ -185,4 +204,21 @@ var initiateTimer = function() {
     timer.loop(50, updateArenaSize, this);
     //  Start the timer running
     timer.start();
+};
+
+var getPlayer = function(userid) {
+    var thisPlayer;
+    if (!players || !players.children) return;
+    players.children.forEach(function (player) {
+        if (player.userid === userid) thisPlayer = player;
+    });
+    return thisPlayer;
+};
+
+var positionPlayer = function(player, x, y) {
+    if (!gameReady || !player) return;
+    //console.log("POSITINGIN PLAYER", player);
+    console.log(player.x, player.y);
+    player.body.x = x;
+    player.body.y = y;
 };

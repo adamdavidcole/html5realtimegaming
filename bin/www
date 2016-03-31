@@ -7,6 +7,7 @@
 var app = require('../app');
 var debug = require('debug')('untitled1:server');
 var http = require('http');
+var uuid = require('node-uuid');
 
 /**
  * Get port from environment and store in Express.
@@ -20,6 +21,48 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+var io = require('socket.io')(server);
+
+
+var sockets = {};
+var players = {};
+
+io.on('connection', function (socket) {
+    socket.userid = uuid();
+    console.log("socket connected with id: " + socket.userid);
+    sockets[socket.userid] = socket;
+    socket.emit('onconnected', { userid: socket.userid });
+    socket.on('requestToJoinRoom', function (data) {
+        var player = joinRoom(socket);
+        socket.emit("onJoinedRoom", {userid: player.userid, players: players});
+        socket.broadcast.emit("onNewPlayer", {player: player});
+    });
+
+    socket.on('disconnect', function() {
+        console.log('socket disconnected with id: " + socket.userid');
+        delete sockets[socket.userid];
+        delete players[socket.userid];
+        socket.broadcast.emit("ondisconnect", {userid: socket.userid});
+    });
+
+    socket.on('updatePosition', function(data) {
+        //console.log("updatePosition", data);
+        var player = players[data.userid];
+        player.x = data.x;
+        player.y = data.y;
+        socket.broadcast.emit("playerMoved", {player:player});
+    });
+});
+
+
+var joinRoom = function(socket) {
+    var player = {};
+    player.userid = socket.userid;
+    player.x = Math.random() * 200 + 400;
+    player.y = Math.random() * 200 + 300;
+    players[player.userid] = player;
+    return player;
+};
 
 /**
  * Listen on provided port, on all network interfaces.
