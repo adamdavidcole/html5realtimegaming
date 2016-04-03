@@ -4,9 +4,10 @@
  * Created by adamcole on 3/31/16.
  */
 var userid;
-var game = require('./game.client.js');
-
 var socket = io.connect('http://10.0.1.4:3000');
+var game = require('../shared/game.core');
+var gameObj = game.clientCreateGame(socket);
+
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;
@@ -43,7 +44,6 @@ socket.on('onPlayerDied', function (data) {
     game.removePlayer(data.userid);
     if (data.userid === userid) {
         game.setGameOver();
-        clearInterval(clientGameUpdateLoop);
     }
 });
 
@@ -56,28 +56,17 @@ socket.on('onserverupdate', function(data) {
     game.client_applyState(data.state);
 });
 
-var clientGameUpdateLoop = setInterval(function () {
-    sendUpdatedPosition();
-}, 15);
-
-var sendUpdatedPosition = function() {
-    if (!game.isGameReady() || game.isGameOver()) return;
-    var player = game.getPlayer(userid);
-    if (player) socket.emit("updatePosition", {userid: player.userid, x: player.position.x, y: player.position.y});
-};
-}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_d43714a0.js","/")
-},{"./game.client.js":2,"1YiZ5S":6,"buffer":3}],2:[function(require,module,exports){
-(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
-/**
- * Created by adamcole on 4/3/16.
- */
-var gameCore = require('/Users/adamcole/Documents/Penn2016Spring/CIS497/untitled1/shared/game.core.js');
-//var game = new Phaser.Game(800, 600, Phaser.AUTO, '');
-var game = gameCore.clientCreateGame();
-//gameCore.setState();
-module.exports = gameCore;
-}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/game.client.js","/")
-},{"/Users/adamcole/Documents/Penn2016Spring/CIS497/untitled1/shared/game.core.js":7,"1YiZ5S":6,"buffer":3}],3:[function(require,module,exports){
+//var clientGameUpdateLoop = setInterval(function () {
+//    sendUpdatedPosition();
+//}, 15);
+//
+//var sendUpdatedPosition = function() {
+//    if (!game.isGameReady() || game.isGameOver()) return;
+//    var player = game.getPlayer(userid);
+//    if (player) socket.emit("updatePosition", {userid: player.userid, x: player.position.x, y: player.position.y});
+//};
+}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_5d4875e8.js","/")
+},{"../shared/game.core":7,"1YiZ5S":5,"buffer":2}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*!
  * The buffer module from node.js, for the browser.
@@ -1190,7 +1179,7 @@ function assert (test, message) {
 }
 
 }).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../node_modules/gulp-browserify/node_modules/browserify/node_modules/buffer/index.js","/../node_modules/gulp-browserify/node_modules/browserify/node_modules/buffer")
-},{"1YiZ5S":6,"base64-js":4,"buffer":3,"ieee754":5}],4:[function(require,module,exports){
+},{"1YiZ5S":5,"base64-js":3,"buffer":2,"ieee754":4}],3:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -1318,7 +1307,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
 }).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../node_modules/gulp-browserify/node_modules/browserify/node_modules/buffer/node_modules/base64-js/lib/b64.js","/../node_modules/gulp-browserify/node_modules/browserify/node_modules/buffer/node_modules/base64-js/lib")
-},{"1YiZ5S":6,"buffer":3}],5:[function(require,module,exports){
+},{"1YiZ5S":5,"buffer":2}],4:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
@@ -1406,7 +1395,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 }
 
 }).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../node_modules/gulp-browserify/node_modules/browserify/node_modules/buffer/node_modules/ieee754/index.js","/../node_modules/gulp-browserify/node_modules/browserify/node_modules/buffer/node_modules/ieee754")
-},{"1YiZ5S":6,"buffer":3}],6:[function(require,module,exports){
+},{"1YiZ5S":5,"buffer":2}],5:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 // shim for using process in browser
 
@@ -1473,7 +1462,22 @@ process.chdir = function (dir) {
 };
 
 }).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../node_modules/gulp-browserify/node_modules/browserify/node_modules/process/browser.js","/../node_modules/gulp-browserify/node_modules/browserify/node_modules/process")
-},{"1YiZ5S":6,"buffer":3}],7:[function(require,module,exports){
+},{"1YiZ5S":5,"buffer":2}],6:[function(require,module,exports){
+(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
+/**
+ * Created by adamcole on 4/3/16.
+ */
+
+exports.inputs = {
+    MOVE_LEFT: 0,
+    MOVE_RIGHT: 1,
+    MOVE_UP: 2,
+    MOVE_DOWN: 3,
+    ROTATE_RIGHT: 4,
+    ROTATE_LEFT: 5
+};
+}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../shared/constants.js","/../shared")
+},{"1YiZ5S":5,"buffer":2}],7:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /**
  * Created by adamcole on 2/16/16.
@@ -1498,13 +1502,18 @@ var isServer;
 var players;
 var player1;
 
-var moveVelocity = 100;
-var rotateVelocity = 200;
+var moveVelocity = 5000;
+var rotateVelocity = 5000;
 
 var serverStateUpdateLoop;
 var serverStateUpdateLoopFreq = 45;
 
+var inputSequenceNumber = 0;
+var last_ts;
+var inputs = require('./constants').inputs;
+
 var io;
+var socket;
 
 gameReady = false;
 gameOver = false;
@@ -1578,17 +1587,93 @@ function create() {
     //initiateTimer();
 };
 
+var client_update = function() {
+    var now_ts = +new Date();
+    last_ts = last_ts || now_ts;
+    var dt_sec = (now_ts - last_ts) / 1000.0;
+    last_ts = now_ts;
+    var userInputs = getInputs(cursors);
+    var input = {};
+    input.dtSec = dt_sec;
+    input.userInputs = userInputs;
+    input.userid = userid;
+    input.inputSequenceNumber = inputSequenceNumber++;
+    socket.emit('clientInput', {input: input});
+};
+
 // update the game state
 function update() {
-    //console.log(puck.body.x);
-    players.children.forEach(function (player) {
+    if (!isServer) client_update();
+    //players.children.forEach(function (player) {
         // update the player and check if it is in bounds
-        if (player.userid === userid) {
-            updatePlayer(player, cursors);
-        }
+        //if (player.userid === userid) {
+            //updatePlayer(player, cursors);
+        //}
         //if (!isPlayerWithinArena(player)) player.kill();
-    });
+    //});
     //sendUpdatedPosition();
+};
+
+var getInputs = function(controls) {
+    var userInputs = [];
+    if (controls.rotateLeft.isDown) {
+        userInputs.push(inputs.ROTATE_LEFT);
+    } else if (controls.rotateRight.isDown) {
+        userInputs.push(inputs.ROTATE_RIGHT);
+    }
+    if (controls.left.isDown)
+    {
+        userInputs.push(inputs.MOVE_LEFT);
+    }
+    else if (controls.right.isDown)
+    {
+        userInputs.push(inputs.MOVE_RIGHT);
+    }
+
+    if (controls.up.isDown)
+    {
+        userInputs.push(inputs.MOVE_UP);
+    }
+    else if (controls.down.isDown)
+    {
+        userInputs.push(inputs.MOVE_DOWN);
+    }
+
+    return userInputs;
+};
+
+var processInput = function (input) {
+    var player = getPlayer(input.userid);
+    if (!player) return;
+    player.body.setZeroRotation();
+    input.userInputs.forEach(function(userInput) {
+        //player.body.moveLeft(moveVelocity *.15);
+        if (userInput === inputs.ROTATE_LEFT) {
+            player.body.rotateLeft(rotateVelocity * input.dtSec);
+        } else if (userInput === inputs.ROTATE_RIGHT) {
+            player.body.rotateRight(rotateVelocity * input.dtSec);
+        } else {
+        }
+
+        if (userInput === inputs.MOVE_LEFT)
+        {
+            player.body.moveLeft(moveVelocity * input.dtSec);
+        }
+        else if (userInput === inputs.MOVE_RIGHT)
+        {
+            player.body.moveRight(moveVelocity * input.dtSec);
+
+        }
+
+        if (userInput === inputs.MOVE_UP)
+        {
+            player.body.moveUp(moveVelocity * input.dtSec);
+        }
+        else if (userInput === inputs.MOVE_DOWN)
+        {
+            player.body.moveDown(moveVelocity * input.dtSec);
+        }
+    });
 };
 
 var updatePlayer = function(player, controls) {
@@ -1642,7 +1727,7 @@ var createPlayer = function(userid, x, y) {
             if (isServer) removePlayer(player.userid);
         }
     });
-    player.body.mass = 2;
+    player.body.mass = 4;
     player.body.damping = .8;
     player.userid = userid;
     //player.body.angularDamping = 0;
@@ -1762,9 +1847,10 @@ var setState = function() {
 };
 
 
-var clientCreateGame = function () {
+var clientCreateGame = function (_socket) {
     game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
     isServer = false;
+    socket = _socket;
     return game;
 };
 
@@ -1872,7 +1958,7 @@ var setGameOver = function() {
 
 var isGameOver = function() {
     return gameOver
-}
+};
 
 module.exports = {
     preload: preload,
@@ -1893,7 +1979,8 @@ module.exports = {
     client_applyState: client_applyState,
     getGameState: getGameState,
     setGameOver: setGameOver,
-    isGameOver: isGameOver
+    isGameOver: isGameOver,
+    processInput:processInput
 };
 }).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../shared/game.core.js","/../shared")
-},{"1YiZ5S":6,"buffer":3}]},{},[1])
+},{"./constants":6,"1YiZ5S":5,"buffer":2}]},{},[1])

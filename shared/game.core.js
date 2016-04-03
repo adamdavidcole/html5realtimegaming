@@ -21,13 +21,18 @@ var isServer;
 var players;
 var player1;
 
-var moveVelocity = 100;
-var rotateVelocity = 200;
+var moveVelocity = 5000;
+var rotateVelocity = 5000;
 
 var serverStateUpdateLoop;
 var serverStateUpdateLoopFreq = 45;
 
+var inputSequenceNumber = 0;
+var last_ts;
+var inputs = require('./constants').inputs;
+
 var io;
+var socket;
 
 gameReady = false;
 gameOver = false;
@@ -101,17 +106,93 @@ function create() {
     //initiateTimer();
 };
 
+var client_update = function() {
+    var now_ts = +new Date();
+    last_ts = last_ts || now_ts;
+    var dt_sec = (now_ts - last_ts) / 1000.0;
+    last_ts = now_ts;
+    var userInputs = getInputs(cursors);
+    var input = {};
+    input.dtSec = dt_sec;
+    input.userInputs = userInputs;
+    input.userid = userid;
+    input.inputSequenceNumber = inputSequenceNumber++;
+    socket.emit('clientInput', {input: input});
+};
+
 // update the game state
 function update() {
-    //console.log(puck.body.x);
-    players.children.forEach(function (player) {
+    if (!isServer) client_update();
+    //players.children.forEach(function (player) {
         // update the player and check if it is in bounds
-        if (player.userid === userid) {
-            updatePlayer(player, cursors);
-        }
+        //if (player.userid === userid) {
+            //updatePlayer(player, cursors);
+        //}
         //if (!isPlayerWithinArena(player)) player.kill();
-    });
+    //});
     //sendUpdatedPosition();
+};
+
+var getInputs = function(controls) {
+    var userInputs = [];
+    if (controls.rotateLeft.isDown) {
+        userInputs.push(inputs.ROTATE_LEFT);
+    } else if (controls.rotateRight.isDown) {
+        userInputs.push(inputs.ROTATE_RIGHT);
+    }
+    if (controls.left.isDown)
+    {
+        userInputs.push(inputs.MOVE_LEFT);
+    }
+    else if (controls.right.isDown)
+    {
+        userInputs.push(inputs.MOVE_RIGHT);
+    }
+
+    if (controls.up.isDown)
+    {
+        userInputs.push(inputs.MOVE_UP);
+    }
+    else if (controls.down.isDown)
+    {
+        userInputs.push(inputs.MOVE_DOWN);
+    }
+
+    return userInputs;
+};
+
+var processInput = function (input) {
+    var player = getPlayer(input.userid);
+    if (!player) return;
+    player.body.setZeroRotation();
+    input.userInputs.forEach(function(userInput) {
+        //player.body.moveLeft(moveVelocity *.15);
+        if (userInput === inputs.ROTATE_LEFT) {
+            player.body.rotateLeft(rotateVelocity * input.dtSec);
+        } else if (userInput === inputs.ROTATE_RIGHT) {
+            player.body.rotateRight(rotateVelocity * input.dtSec);
+        } else {
+        }
+
+        if (userInput === inputs.MOVE_LEFT)
+        {
+            player.body.moveLeft(moveVelocity * input.dtSec);
+        }
+        else if (userInput === inputs.MOVE_RIGHT)
+        {
+            player.body.moveRight(moveVelocity * input.dtSec);
+
+        }
+
+        if (userInput === inputs.MOVE_UP)
+        {
+            player.body.moveUp(moveVelocity * input.dtSec);
+        }
+        else if (userInput === inputs.MOVE_DOWN)
+        {
+            player.body.moveDown(moveVelocity * input.dtSec);
+        }
+    });
 };
 
 var updatePlayer = function(player, controls) {
@@ -165,7 +246,7 @@ var createPlayer = function(userid, x, y) {
             if (isServer) removePlayer(player.userid);
         }
     });
-    player.body.mass = 2;
+    player.body.mass = 4;
     player.body.damping = .8;
     player.userid = userid;
     //player.body.angularDamping = 0;
@@ -285,9 +366,10 @@ var setState = function() {
 };
 
 
-var clientCreateGame = function () {
+var clientCreateGame = function (_socket) {
     game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
     isServer = false;
+    socket = _socket;
     return game;
 };
 
@@ -395,7 +477,7 @@ var setGameOver = function() {
 
 var isGameOver = function() {
     return gameOver
-}
+};
 
 module.exports = {
     preload: preload,
@@ -416,5 +498,6 @@ module.exports = {
     client_applyState: client_applyState,
     getGameState: getGameState,
     setGameOver: setGameOver,
-    isGameOver: isGameOver
+    isGameOver: isGameOver,
+    processInput:processInput
 };

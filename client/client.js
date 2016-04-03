@@ -2,9 +2,10 @@
  * Created by adamcole on 3/31/16.
  */
 var userid;
-var game = require('./game.client.js');
-
 var socket = io.connect('http://10.0.1.4:3000');
+var game = require('../shared/game.core');
+var gameObj = game.clientCreateGame(socket);
+
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;
@@ -41,7 +42,6 @@ socket.on('onPlayerDied', function (data) {
     game.removePlayer(data.userid);
     if (data.userid === userid) {
         game.setGameOver();
-        clearInterval(clientGameUpdateLoop);
     }
 });
 
@@ -54,12 +54,12 @@ socket.on('onserverupdate', function(data) {
     game.client_applyState(data.state);
 });
 
-var clientGameUpdateLoop = setInterval(function () {
-    sendUpdatedPosition();
-}, 15);
-
-var sendUpdatedPosition = function() {
-    if (!game.isGameReady() || game.isGameOver()) return;
-    var player = game.getPlayer(userid);
-    if (player) socket.emit("updatePosition", {userid: player.userid, x: player.position.x, y: player.position.y});
-};
+//var clientGameUpdateLoop = setInterval(function () {
+//    sendUpdatedPosition();
+//}, 15);
+//
+//var sendUpdatedPosition = function() {
+//    if (!game.isGameReady() || game.isGameOver()) return;
+//    var player = game.getPlayer(userid);
+//    if (player) socket.emit("updatePosition", {userid: player.userid, x: player.position.x, y: player.position.y});
+//};
