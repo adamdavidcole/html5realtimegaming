@@ -51,7 +51,7 @@ socket.on('ondisconnect', function(data) {
 });
 
 socket.on('onserverupdate', function(data) {
-    game.client_applyState(data.state);
+    game.client_applyState(data.state, data.last_processed_input);
 });
 
 //var clientGameUpdateLoop = setInterval(function () {

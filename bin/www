@@ -50,11 +50,6 @@ io.on('connection', function (socket) {
         gameServer.gameCore.processInput(data.input);
     });
 
-    //socket.on('updatePosition', function(data) {
-    //    if (!data || !data.userid || !data.x || !data.y) return;
-    //    var gamePlayer = gameServer.gameCore.getPlayer(data.userid);
-    //    gameServer.gameCore.positionPlayer(gamePlayer, data.x, data.y);
-    //});
 });
 
 

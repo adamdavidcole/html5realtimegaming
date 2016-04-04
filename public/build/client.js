@@ -53,7 +53,7 @@ socket.on('ondisconnect', function(data) {
 });
 
 socket.on('onserverupdate', function(data) {
-    game.client_applyState(data.state);
+    game.client_applyState(data.state, data.last_processed_input);
 });
 
 //var clientGameUpdateLoop = setInterval(function () {
@@ -65,7 +65,7 @@ socket.on('onserverupdate', function(data) {
 //    var player = game.getPlayer(userid);
 //    if (player) socket.emit("updatePosition", {userid: player.userid, x: player.position.x, y: player.position.y});
 //};
-}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_5d4875e8.js","/")
+}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_52a76c6c.js","/")
 },{"../shared/game.core":7,"1YiZ5S":5,"buffer":2}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*!
@@ -1502,18 +1502,23 @@ var isServer;
 var players;
 var player1;
 
-var moveVelocity = 5000;
-var rotateVelocity = 5000;
+var moveVelocity = 100;
+var rotateVelocity = 7.5;
 
 var serverStateUpdateLoop;
 var serverStateUpdateLoopFreq = 45;
 
 var inputSequenceNumber = 0;
 var last_ts;
-var inputs = require('./constants').inputs;
+var inputTypes = require('./constants').inputs;
+var pending_inputs = [];
+var last_processed_input = 0;
 
 var io;
 var socket;
+
+var clientSidePrediction = true;
+var reconcilliation = true;
 
 gameReady = false;
 gameOver = false;
@@ -1540,8 +1545,8 @@ function serverPreload() {
 function create() {
     //  Enable P2
     game.physics.startSystem(Phaser.Physics.P2JS);
-    game.physics.p2.restitution = .8;
-    //game.physics.p2.friction = 0;
+    //game.physics.p2.restitution = .8;
+    game.physics.p2.friction = 0;
     //game.physics.p2.applyGravity = false;
 
     //  Turn on impact events for the world, without this we get no collision callbacks
@@ -1554,14 +1559,6 @@ function create() {
     arenaCollisionGroup = game.physics.p2.createCollisionGroup();
     puckCollisionGroup = game.physics.p2.createCollisionGroup();
 
-    // create arena
-    //arena = game.add.sprite(game.width / 2, game.height / 2, 'arena');
-    //game.physics.p2.enable(arena, true);
-    //arena.body.clearShapes();
-    //arena.body.loadPolygon('arenaStrokeData', 'arenaStroke');
-    //arena.body.setCollisionGroup(arenaCollisionGroup);
-    //arena.body.static = true;
-    //arena.body.collides(puckCollisionGroup);
     createArena();
 
     // create game puck
@@ -1593,123 +1590,95 @@ var client_update = function() {
     var dt_sec = (now_ts - last_ts) / 1000.0;
     last_ts = now_ts;
     var userInputs = getInputs(cursors);
+    if (!userInputs.length) return;
     var input = {};
     input.dtSec = dt_sec;
     input.userInputs = userInputs;
     input.userid = userid;
     input.inputSequenceNumber = inputSequenceNumber++;
     socket.emit('clientInput', {input: input});
+    if (clientSidePrediction) {
+        processInput(input);
+    }
+    if (reconcilliation) {
+        pending_inputs.push(input);
+    }
 };
 
 // update the game state
 function update() {
     if (!isServer) client_update();
-    //players.children.forEach(function (player) {
-        // update the player and check if it is in bounds
-        //if (player.userid === userid) {
-            //updatePlayer(player, cursors);
-        //}
-        //if (!isPlayerWithinArena(player)) player.kill();
-    //});
-    //sendUpdatedPosition();
 };
 
 var getInputs = function(controls) {
     var userInputs = [];
     if (controls.rotateLeft.isDown) {
-        userInputs.push(inputs.ROTATE_LEFT);
+        userInputs.push(inputTypes.ROTATE_LEFT);
     } else if (controls.rotateRight.isDown) {
-        userInputs.push(inputs.ROTATE_RIGHT);
+        userInputs.push(inputTypes.ROTATE_RIGHT);
     }
     if (controls.left.isDown)
     {
-        userInputs.push(inputs.MOVE_LEFT);
+        userInputs.push(inputTypes.MOVE_LEFT);
     }
     else if (controls.right.isDown)
     {
-        userInputs.push(inputs.MOVE_RIGHT);
+        userInputs.push(inputTypes.MOVE_RIGHT);
     }
 
     if (controls.up.isDown)
     {
-        userInputs.push(inputs.MOVE_UP);
+        userInputs.push(inputTypes.MOVE_UP);
     }
     else if (controls.down.isDown)
     {
-        userInputs.push(inputs.MOVE_DOWN);
+        userInputs.push(inputTypes.MOVE_DOWN);
     }
 
     return userInputs;
 };
 
 var processInput = function (input) {
+    last_processed_input = input.inputSequenceNumber;
     var player = getPlayer(input.userid);
     if (!player) return;
-    player.body.setZeroRotation();
     input.userInputs.forEach(function(userInput) {
         //player.body.moveLeft(moveVelocity *.15);
-        if (userInput === inputs.ROTATE_LEFT) {
-            player.body.rotateLeft(rotateVelocity * input.dtSec);
-        } else if (userInput === inputs.ROTATE_RIGHT) {
-            player.body.rotateRight(rotateVelocity * input.dtSec);
+        if (userInput === inputTypes.ROTATE_LEFT) {
+            //player.body.rotateLeft(rotateVelocity * input.dtSec);
+            player.body.rotation = player.body.rotation - rotateVelocity * input.dtSec;
+        } else if (userInput === inputTypes.ROTATE_RIGHT) {
+            //player.body.rotateRight(rotateVelocity * input.dtSec);
+            player.body.rotation = player.body.rotation + rotateVelocity * input.dtSec;
         } else {
+            player.body.setZeroRotation();
         }
 
-        if (userInput === inputs.MOVE_LEFT)
+        if (userInput === inputTypes.MOVE_LEFT)
         {
-            player.body.moveLeft(moveVelocity * input.dtSec);
-        }
-        else if (userInput === inputs.MOVE_RIGHT)
-        {
-            player.body.moveRight(moveVelocity * input.dtSec);
+            //player.body.moveLeft(moveVelocity * input.dtSec);
+            player.body.x = player.body.x - (moveVelocity * input.dtSec);
 
         }
-
-        if (userInput === inputs.MOVE_UP)
+        else if (userInput === inputTypes.MOVE_RIGHT)
         {
-            player.body.moveUp(moveVelocity * input.dtSec);
+            //player.body.moveRight(moveVelocity * input.dtSec);
+            player.body.x = player.body.x + (moveVelocity * input.dtSec);
         }
-        else if (userInput === inputs.MOVE_DOWN)
+
+        if (userInput === inputTypes.MOVE_UP)
         {
-            player.body.moveDown(moveVelocity * input.dtSec);
+            //player.body.moveUp(moveVelocity * input.dtSec);
+            player.body.y = player.body.y - (moveVelocity * input.dtSec);
+        }
+
+        else if (userInput === inputTypes.MOVE_DOWN)
+        {
+            //player.body.moveDown(moveVelocity * input.dtSec);
+            player.body.y = player.body.y + (moveVelocity * input.dtSec);
         }
     });
-};
-
-var updatePlayer = function(player, controls) {
-    // controls to rotate character
-    if (controls.rotateLeft.isDown) {
-        player.body.rotateLeft(rotateVelocity);
-    } else if (controls.rotateRight.isDown) {
-        player.body.rotateRight(rotateVelocity);
-    } else {
-        player.body.setZeroRotation();
-    }
-
-    //if (controls.up.isDown) {
-    //    player.body.thrust(150);
-    //} else if (controls.down.isDown) {
-    //    player.body.reverse(150);
-    //}
-
-    // controls to move character along axes
-    if (controls.left.isDown)
-    {
-        player.body.moveLeft(moveVelocity);
-    }
-    else if (controls.right.isDown)
-    {
-        player.body.moveRight(moveVelocity);
-    }
-
-    if (controls.up.isDown)
-    {
-        player.body.moveUp(moveVelocity);
-    }
-    else if (controls.down.isDown)
-    {
-        player.body.moveDown(moveVelocity);
-    }
+    //player.body.setZeroDamping();
 };
 
 var createPlayer = function(userid, x, y) {
@@ -1758,7 +1727,7 @@ var updateArenaSize = function() {
 
 var resizePolygon = function(originalPhysicsKey, newPhysicsKey, shapeKey, scale) {
     var newData = [];
-    var data = this.game.cache.getPhysicsData(originalPhysicsKey, shapeKey);
+    var data = game.cache.getPhysicsData(originalPhysicsKey, shapeKey);
     for (var i = 0; i < data.length; i++) {
         var vertices = [];
         for (var j = 0; j < data[i].shape.length; j += 2) {
@@ -1787,7 +1756,7 @@ var initiateTimer = function() {
     //  Create our Timer
     timer = game.time.create(false);
     //  Set a TimerEvent to occur after 2 seconds
-    timer.loop(50, updateArenaSize, this);
+    timer.loop(500, updateArenaSize, this);
     //  Start the timer running
     timer.start();
 };
@@ -1940,16 +1909,32 @@ var getGameState = function() {
 var server_startStateUpdateLoop = function() {
     serverStateUpdateLoop = setInterval(function () {
         var state = getGameState();
-        io.sockets.emit('onserverupdate', {state: state});
+        io.sockets.emit('onserverupdate', {
+            state: state,
+            last_processed_input:last_processed_input
+        });
     }, serverStateUpdateLoopFreq);
 };
 
-var client_applyState = function(state) {
+var client_applyState = function(state, last_server_input) {
     if (!isGameReady()) return;
     deserializeBody(state.puck);
     state.players.forEach(function (player) {
         deserializeBody(player);
     });
+    var j = 0;
+    while (j < pending_inputs.length) {
+        var input = pending_inputs[j];
+        if (input.inputSequenceNumber <= last_server_input) {
+            // Already processed. Its effect is already taken into account
+            // into the world update we just got, so we can drop it.
+            pending_inputs.splice(j, 1);
+        } else {
+            // Not processed by the server yet. Re-apply it.
+            processInput(input);
+            j++;
+        }
+    }
 };
 
 var setGameOver = function() {
