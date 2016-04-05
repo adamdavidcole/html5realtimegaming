@@ -44,7 +44,7 @@ var keyboard = function(keyCode) {
 };
 
 
-var initInput = function() {
+var init = function() {
     //Capture the keyboard arrow keys
     var left = keyboard(37),
         up = keyboard(38),
@@ -55,11 +55,16 @@ var initInput = function() {
 
     //var moveVelocity = 8;
     //var postVelocity = 0;
+    var rightInterval;
     right.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_RIGHT);
+        //rightInterval = setInterval(function() {
+        //    unprocessedInputs.push(inputTypes.MOVE_RIGHT);
+        //}, 5);
     };
     right.release = function() {
         unprocessedInputs.push(inputTypes.STOP);
+        //clearInterval(rightInterval);
     };
 
     left.press = function() {
@@ -107,6 +112,6 @@ var getInputs = function() {
 };
 
 module.exports = {
-    initInput: initInput,
+    init: init,
     getInputs: getInputs
 }

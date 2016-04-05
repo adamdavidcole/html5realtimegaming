@@ -4,50 +4,38 @@
  * Created by adamcole on 3/31/16.
  */
 var userid;
-//var socket = io.connect('http://10.0.1.4:3000');
 var renderer = require('./gameRenderer');
+var inputHandler = require('./inputHandler');
 var game = renderer.getGame();
-renderer.init();
-userid = "2020"
-game.setUserId(userid);
-game.createPlayer(userid);
-var gameState = game.getGameState();
-setTimeout(function(){
-    game.applyState(gameState);
-    console.log('apply state');
-}, 5000);
-//var game = renderer.getGame();
 
-//socket.on('onconnected', function (data) {
-//    console.log("connected to server with id: " + data.userid);
-//    userid = data.userid;
-//    game.setUserId(userid);
-//    if (!game.isGameReady()) {
-//        console.log("waiting for game to be ready")
-//        var waitForGameReady = setInterval(function() {
-//            if (game.isGameReady()) {
-//                clearInterval(waitForGameReady);
-//                socket.emit('requestToJoinRoom', {userid: userid});
-//                console.log("gameready", game.isGameReady());
-//            }
-//        }, 15);
-//    }
-//});
+var clientUpdateLoop;
+var last_ts;
+var inputSequenceNumber = 0;
+
+renderer.init();
+inputHandler.init();
+
+var socket = io.connect('http://10.0.1.4:3000');
+socket.on('onconnected', function (data) {
+    console.log("connected to server with id: " + data.userid);
+    userid = data.userid;
+    game.setUserId(userid);
+    socket.emit('requestToJoinRoom', {userid: userid});
+});
 //
-//socket.on('onJoinedRoom', function (data) {
-//    console.log("joining room:", data);
-//    userid = data.userid;
-//    data.state.players.forEach(function (player) {
-//        game.createPlayer(player.userid, player.x, player.y);
-//    });
-//    console.log("gamestate on startup:", data.state);
-//    game.client_applyState(data.state);
-//});
+socket.on('onJoinedRoom', function (data) {
+    console.log("joining room:", data);
+    userid = data.userid;
+    game.setUserId(userid);
+    console.log(data);
+    game.applyState(data.state);
+    beginClientUpdateLoop();
+});
 //
-//socket.on('onNewPlayer', function (data){
-//    console.log("adding new player:", data);
-//    game.createPlayer(data.player.userid, data.player.x, data.player.y);
-//});
+socket.on('onNewPlayer', function (data){
+    console.log("adding new player:", data);
+    game.applyState(data.state);
+});
 //
 //socket.on('onPlayerDied', function (data) {
 //    console.log("player died:", data);
@@ -57,17 +45,40 @@ setTimeout(function(){
 //    }
 //});
 //
-//socket.on('ondisconnect', function(data) {
-//    console.log("player disconnected with id: " + data.userid);
-//    game.removePlayer(data.userid);
-//});
-//
-//socket.on('onserverupdate', function(data) {
-//    game.client_applyState(data.state, data.last_processed_input);
-//});
+socket.on('ondisconnect', function(data) {
+    console.log("player disconnected with id: " + data.userid);
+    game.removePlayerById(data.userid);
+});
 
-}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_5c3abafb.js","/")
-},{"./gameRenderer":2,"1YiZ5S":7,"buffer":4}],2:[function(require,module,exports){
+socket.on('onserverupdate', function(data) {
+    game.applyState(data.state);
+});
+
+var beginClientUpdateLoop = function() {
+    clientUpdateLoop = setInterval(function() {
+        var inputs = inputHandler.getInputs();
+        if (!inputs.length) return;
+
+        var now_ts = +new Date();
+        last_ts = last_ts || now_ts;
+        var dt_sec = (now_ts - last_ts) / 1000.0;
+        last_ts = now_ts;
+
+        var clientInput = {};
+        clientInput.dtSec = dt_sec;
+        clientInput.inputs = inputs;
+        clientInput.userid = game.getUserId();
+        clientInput.inputSequenceNumber = inputSequenceNumber++;
+        socket.emit('clientInput', {clientInput: clientInput});
+    }, 15)
+};
+
+var endClientUpdateLoop = function() {
+    clearInterval(clientUpdateLoop);
+};
+
+}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_970f5cb6.js","/")
+},{"./gameRenderer":2,"./inputHandler":3,"1YiZ5S":7,"buffer":4}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /**
  * Created by adamcole on 4/3/16.
@@ -76,7 +87,8 @@ setTimeout(function(){
 var game = require('../shared/game.core2.js');
 var inputHandler = require('./inputHandler');
 var bodyTypes = require('../shared/constants').bodyTypes;
-
+var inputSequenceNumber = 0;
+var last_ts;
 var mpx = function (v) {
     return v *= 20;
 };
@@ -159,8 +171,7 @@ var checkForRemovedPlayers = function() {
 
 var init = function () {
     game.init();
-    inputHandler.initInput();
-
+    inputHandler.init();
     // Pixi.js zoom level
     zoom = 1;
 
@@ -183,6 +194,7 @@ var init = function () {
     container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
     createPuck();
     animate();
+    handleInput();
 };
 
 function animate(t){
@@ -196,14 +208,25 @@ function animate(t){
     drawPlayers();
     // Render scene
     renderer.render(container);
-    handleInput();
+    //handleInput();
 }
 
 
 var handleInput = function() {
     var inputs = inputHandler.getInputs();
     if (!inputs.length) return;
-    game.processInput(inputs);
+
+    var now_ts = +new Date();
+    last_ts = last_ts || now_ts;
+    var dt_sec = (now_ts - last_ts) / 1000.0;
+    last_ts = now_ts;
+
+    var clientInput = {};
+    clientInput.dtSec = dt_sec;
+    clientInput.inputs = inputs;
+    clientInput.userid = game.getUserId();
+    clientInput.inputSequenceNumber = inputSequenceNumber++;
+    socket.emit('clientInput', {clientInput: clientInput});
 };
 
 module.exports = {
@@ -259,7 +282,7 @@ var keyboard = function(keyCode) {
 };
 
 
-var initInput = function() {
+var init = function() {
     //Capture the keyboard arrow keys
     var left = keyboard(37),
         up = keyboard(38),
@@ -270,11 +293,16 @@ var initInput = function() {
 
     //var moveVelocity = 8;
     //var postVelocity = 0;
+    var rightInterval;
     right.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_RIGHT);
+        //rightInterval = setInterval(function() {
+        //    unprocessedInputs.push(inputTypes.MOVE_RIGHT);
+        //}, 5);
     };
     right.release = function() {
         unprocessedInputs.push(inputTypes.STOP);
+        //clearInterval(rightInterval);
     };
 
     left.press = function() {
@@ -322,7 +350,7 @@ var getInputs = function() {
 };
 
 module.exports = {
-    initInput: initInput,
+    init: init,
     getInputs: getInputs
 }
 }).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/inputHandler.js","/")
@@ -15495,7 +15523,8 @@ exports.inputTypes = {
     MOVE_DOWN: 3,
     ROTATE_RIGHT: 4,
     ROTATE_LEFT: 5,
-    STOP: 6
+    STOP_RIGHT: 6,
+    STOP: 7
 };
 
 exports.bodyTypes = {
@@ -15516,12 +15545,19 @@ var bodyTypes = require('./constants').bodyTypes;
 var puck;
 var players = [];
 var userid;
+var isServer = false;
 
-var moveVelocity = 7.5;
-var rotateVelocity = 6;
+var pxm = function (v) {
+    return v * 0.05;
+};
+var moveVelocity = 6;
+var rotateVelocity = 7.5;
+
+var lastProcessedInput = 0;
 
 var init = function(_userid) {
-    userid = _userid;
+    if (!_userid) isServer = true;
+    else userid = _userid;
 
     // Init p2.js
     world = new p2.World({
@@ -15564,16 +15600,22 @@ var init = function(_userid) {
     createPuck();
     world.on("beginContact", function(data) {
         if (data.shapeA.type === p2.Shape.CIRCLE && data.shapeB.type === p2.Shape.CIRCLE) {
-            var player = data.bodyA.bodyType === 'player' ? data.bodyA : data.bodyB;
-            removePlayer(player);
+            if (data.bodyA.bodyType !== bodyTypes.PUCK &&
+                data.bodyB.bodyType !== bodyTypes.PUCK) return;
+            var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
+            if (nonPuckBody.bodyType === bodyTypes.PLAYER) removePlayer(nonPuckBody);
         }
     });
 };
 
-var createPlayer = function(userid) {
+var createPlayer = function(userid, x, y) {
+    if (!x || !y) {
+        x = 400;
+        y = 550;
+    }
     var playerBody = new p2.Body({
         mass:3,
-        position:[pxm(400), pxm(450)],
+        position:[pxm(x), pxm(y)],
     });
     var circleShape = new p2.Circle({
         radius: pxm(25)
@@ -15588,6 +15630,7 @@ var createPlayer = function(userid) {
     playerBody.userid = userid;
     world.addBody(playerBody);
     players.push(playerBody);
+    return playerBody;
 };
 
 var createPuck = function() {
@@ -15601,26 +15644,13 @@ var createPuck = function() {
     puck.bodyType = bodyTypes.PUCK;
     puck.addShape(circleShape);
     world.addBody(puck);
+    return puck;
 };
 
-/**
- * Convert pixel value to p2 physics scale (meters).
- * By default Phaser uses a scale of 20px per meter.
- * If you need to modify this you can over-ride these functions via the Physics Configuration object.
- *
- * @method Phaser.Physics.P2#pxm
- * @param {number} v - The value to convert.
- * @return {number} The scaled value.
- */
-var pxm = function (v) {
-    return v * 0.05;
-};
-
-var getPlayer = function(userid) {
+var removePlayerById = function(playerid) {
     for (var i = 0; i < players.length; i++) {
-        if (players[i].userid === userid) return players[i];
+        if (players[i].userid === playerid) removePlayer(players[i]);
     }
-    return;
 };
 
 var removePlayer = function(player) {
@@ -15631,8 +15661,16 @@ var removePlayer = function(player) {
     }
 };
 
-var processInput = function(inputs) {
-    if (!inputs.length) return;
+var getPlayer = function(userid) {
+    for (var i = 0; i < players.length; i++) {
+        if (players[i].userid === userid) return players[i];
+    }
+    return;
+};
+
+var processInput = function(inputs, userid) {
+    console.log("processing input");
+    console.log(inputs);
     var player = getPlayer(userid);
     if (!player) return;
     inputs.forEach(function(input) {
@@ -15641,16 +15679,16 @@ var processInput = function(inputs) {
                 player.velocity[0] = moveVelocity;
                 break;
             case inputTypes.MOVE_LEFT:
-                player.velocity[0] = -moveVelocity;
+                player.velocity[0] = moveVelocity * -1;
                 break;
             case inputTypes.MOVE_UP:
-                player.velocity[1] = -moveVelocity;
+                player.velocity[1] = moveVelocity * -1;
                 break;
             case inputTypes.MOVE_DOWN:
                 player.velocity[1] = moveVelocity;
                 break;
             case inputTypes.ROTATE_LEFT:
-                player.angularVelocity = -rotateVelocity;
+                player.angularVelocity = rotateVelocity;
                 break;
             case inputTypes.ROTATE_RIGHT:
                 player.angularVelocity = rotateVelocity;
@@ -15664,6 +15702,7 @@ var processInput = function(inputs) {
                 player.angularVelocity = 0;
         }
     });
+    console.log(player.velocity);
 };
 
 var serializeBody = function(body) {
@@ -15688,7 +15727,6 @@ var serializeBody = function(body) {
 var getGameState = function() {
     var state = {};
     state.puck = serializeBody(puck);
-    console.log(puck);
     state.players = [];
     players.forEach(function (player) {
         var sBody = serializeBody(player);
@@ -15702,6 +15740,7 @@ var applyState = function(state) {
     applyStateToBody(state.puck, puck);
     state.players.forEach(function (playerState) {
         var playerBody = getPlayer(playerState.userid);
+        if (!playerBody) playerBody = createPlayer(playerState.userid);
         applyStateToBody(playerState, playerBody);
     });
 };
@@ -15727,11 +15766,14 @@ module.exports = {
     getWorld: function() {return world;},
     getPlayers: function() {return players;},
     getPuck: function() {return puck;},
+    getLastProcessedInput: function(){return lastProcessedInput},
+    getUserId: function() {return userid;},
     setUserId: function(_userid) {userid = _userid;},
     init: init,
     getGameState: getGameState,
     createPlayer: createPlayer,
     removePlayer: removePlayer,
+    removePlayerById: removePlayerById,
     processInput: processInput,
     applyState: applyState
 };

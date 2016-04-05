@@ -7,8 +7,6 @@
 var app = require('../app');
 var debug = require('debug')('untitled1:server');
 var http = require('http');
-var uuid = require('node-uuid');
-var gameServer = require('../server/game.server.js');
 
 /**
  * Get port from environment and store in Express.
@@ -23,44 +21,8 @@ app.set('port', port);
 
 var server = http.createServer(app);
 var io = require('socket.io')(server);
+var gameServer = require('../server/server');
 gameServer.init(io);
-
-var sockets = {};
-
-io.on('connection', function (socket) {
-    socket.userid = uuid();
-    console.log("socket connected with id: " + socket.userid);
-    sockets[socket.userid] = socket;
-    socket.emit('onconnected', { userid: socket.userid });
-    socket.on('requestToJoinRoom', function (data) {
-        var player = joinRoom(socket);
-        var state =  gameServer.gameCore.getGameState();
-        socket.emit("onJoinedRoom", {userid: player.userid, state:state});
-        socket.broadcast.emit("onNewPlayer", {player: player});
-    });
-
-    socket.on('disconnect', function() {
-        console.log("socket disconnected with id: " + socket.userid);
-        gameServer.gameCore.removePlayer(socket.userid);
-        delete sockets[socket.userid];
-        socket.broadcast.emit("ondisconnect", {userid: socket.userid});
-    });
-
-    socket.on('clientInput', function(data) {
-        gameServer.gameCore.processInput(data.input);
-    });
-
-});
-
-
-var joinRoom = function(socket) {
-    var player = {};
-    player.userid = socket.userid;
-    player.x = Math.random() * 200 + 400;
-    player.y = Math.random() * 200 + 300;
-    gameServer.gameCore.createPlayer(player.userid, player.x, player.y);
-    return player;
-};
 
 /**
  * Listen on provided port, on all network interfaces.

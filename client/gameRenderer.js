@@ -5,7 +5,8 @@
 var game = require('../shared/game.core2.js');
 var inputHandler = require('./inputHandler');
 var bodyTypes = require('../shared/constants').bodyTypes;
-
+var inputSequenceNumber = 0;
+var last_ts;
 var mpx = function (v) {
     return v *= 20;
 };
@@ -88,8 +89,7 @@ var checkForRemovedPlayers = function() {
 
 var init = function () {
     game.init();
-    inputHandler.initInput();
-
+    inputHandler.init();
     // Pixi.js zoom level
     zoom = 1;
 
@@ -112,6 +112,7 @@ var init = function () {
     container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
     createPuck();
     animate();
+    handleInput();
 };
 
 function animate(t){
@@ -125,14 +126,25 @@ function animate(t){
     drawPlayers();
     // Render scene
     renderer.render(container);
-    handleInput();
+    //handleInput();
 }
 
 
 var handleInput = function() {
     var inputs = inputHandler.getInputs();
     if (!inputs.length) return;
-    game.processInput(inputs);
+
+    var now_ts = +new Date();
+    last_ts = last_ts || now_ts;
+    var dt_sec = (now_ts - last_ts) / 1000.0;
+    last_ts = now_ts;
+
+    var clientInput = {};
+    clientInput.dtSec = dt_sec;
+    clientInput.inputs = inputs;
+    clientInput.userid = game.getUserId();
+    clientInput.inputSequenceNumber = inputSequenceNumber++;
+    socket.emit('clientInput', {clientInput: clientInput});
 };
 
 module.exports = {

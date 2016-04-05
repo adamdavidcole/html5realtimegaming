@@ -9,7 +9,8 @@ exports.inputTypes = {
     MOVE_DOWN: 3,
     ROTATE_RIGHT: 4,
     ROTATE_LEFT: 5,
-    STOP: 6
+    STOP_RIGHT: 6,
+    STOP: 7
 };
 
 exports.bodyTypes = {

@@ -9,12 +9,19 @@ var bodyTypes = require('./constants').bodyTypes;
 var puck;
 var players = [];
 var userid;
+var isServer = false;
 
-var moveVelocity = 7.5;
-var rotateVelocity = 6;
+var pxm = function (v) {
+    return v * 0.05;
+};
+var moveVelocity = 6;
+var rotateVelocity = 7.5;
+
+var lastProcessedInput = 0;
 
 var init = function(_userid) {
-    userid = _userid;
+    if (!_userid) isServer = true;
+    else userid = _userid;
 
     // Init p2.js
     world = new p2.World({
@@ -57,16 +64,22 @@ var init = function(_userid) {
     createPuck();
     world.on("beginContact", function(data) {
         if (data.shapeA.type === p2.Shape.CIRCLE && data.shapeB.type === p2.Shape.CIRCLE) {
-            var player = data.bodyA.bodyType === 'player' ? data.bodyA : data.bodyB;
-            removePlayer(player);
+            if (data.bodyA.bodyType !== bodyTypes.PUCK &&
+                data.bodyB.bodyType !== bodyTypes.PUCK) return;
+            var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
+            if (nonPuckBody.bodyType === bodyTypes.PLAYER) removePlayer(nonPuckBody);
         }
     });
 };
 
-var createPlayer = function(userid) {
+var createPlayer = function(userid, x, y) {
+    if (!x || !y) {
+        x = 400;
+        y = 550;
+    }
     var playerBody = new p2.Body({
         mass:3,
-        position:[pxm(400), pxm(450)],
+        position:[pxm(x), pxm(y)],
     });
     var circleShape = new p2.Circle({
         radius: pxm(25)
@@ -81,6 +94,7 @@ var createPlayer = function(userid) {
     playerBody.userid = userid;
     world.addBody(playerBody);
     players.push(playerBody);
+    return playerBody;
 };
 
 var createPuck = function() {
@@ -94,26 +108,13 @@ var createPuck = function() {
     puck.bodyType = bodyTypes.PUCK;
     puck.addShape(circleShape);
     world.addBody(puck);
+    return puck;
 };
 
-/**
- * Convert pixel value to p2 physics scale (meters).
- * By default Phaser uses a scale of 20px per meter.
- * If you need to modify this you can over-ride these functions via the Physics Configuration object.
- *
- * @method Phaser.Physics.P2#pxm
- * @param {number} v - The value to convert.
- * @return {number} The scaled value.
- */
-var pxm = function (v) {
-    return v * 0.05;
-};
-
-var getPlayer = function(userid) {
+var removePlayerById = function(playerid) {
     for (var i = 0; i < players.length; i++) {
-        if (players[i].userid === userid) return players[i];
+        if (players[i].userid === playerid) removePlayer(players[i]);
     }
-    return;
 };
 
 var removePlayer = function(player) {
@@ -124,8 +125,16 @@ var removePlayer = function(player) {
     }
 };
 
-var processInput = function(inputs) {
-    if (!inputs.length) return;
+var getPlayer = function(userid) {
+    for (var i = 0; i < players.length; i++) {
+        if (players[i].userid === userid) return players[i];
+    }
+    return;
+};
+
+var processInput = function(inputs, userid) {
+    console.log("processing input");
+    console.log(inputs);
     var player = getPlayer(userid);
     if (!player) return;
     inputs.forEach(function(input) {
@@ -134,16 +143,16 @@ var processInput = function(inputs) {
                 player.velocity[0] = moveVelocity;
                 break;
             case inputTypes.MOVE_LEFT:
-                player.velocity[0] = -moveVelocity;
+                player.velocity[0] = moveVelocity * -1;
                 break;
             case inputTypes.MOVE_UP:
-                player.velocity[1] = -moveVelocity;
+                player.velocity[1] = moveVelocity * -1;
                 break;
             case inputTypes.MOVE_DOWN:
                 player.velocity[1] = moveVelocity;
                 break;
             case inputTypes.ROTATE_LEFT:
-                player.angularVelocity = -rotateVelocity;
+                player.angularVelocity = rotateVelocity * -1;
                 break;
             case inputTypes.ROTATE_RIGHT:
                 player.angularVelocity = rotateVelocity;
@@ -157,6 +166,7 @@ var processInput = function(inputs) {
                 player.angularVelocity = 0;
         }
     });
+    console.log(player.velocity);
 };
 
 var serializeBody = function(body) {
@@ -181,7 +191,6 @@ var serializeBody = function(body) {
 var getGameState = function() {
     var state = {};
     state.puck = serializeBody(puck);
-    console.log(puck);
     state.players = [];
     players.forEach(function (player) {
         var sBody = serializeBody(player);
@@ -195,6 +204,7 @@ var applyState = function(state) {
     applyStateToBody(state.puck, puck);
     state.players.forEach(function (playerState) {
         var playerBody = getPlayer(playerState.userid);
+        if (!playerBody) playerBody = createPlayer(playerState.userid);
         applyStateToBody(playerState, playerBody);
     });
 };
@@ -220,11 +230,14 @@ module.exports = {
     getWorld: function() {return world;},
     getPlayers: function() {return players;},
     getPuck: function() {return puck;},
+    getLastProcessedInput: function(){return lastProcessedInput},
+    getUserId: function() {return userid;},
     setUserId: function(_userid) {userid = _userid;},
     init: init,
     getGameState: getGameState,
     createPlayer: createPlayer,
     removePlayer: removePlayer,
+    removePlayerById: removePlayerById,
     processInput: processInput,
     applyState: applyState
 };
