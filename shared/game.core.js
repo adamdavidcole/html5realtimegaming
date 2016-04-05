@@ -197,7 +197,6 @@ var processInput = function (input) {
             player.body.y = player.body.y + (moveVelocity * input.dtSec);
         }
     });
-    //player.body.setZeroDamping();
 };
 
 var createPlayer = function(userid, x, y) {

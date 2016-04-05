@@ -65,7 +65,7 @@ socket.on('onserverupdate', function(data) {
 //    var player = game.getPlayer(userid);
 //    if (player) socket.emit("updatePosition", {userid: player.userid, x: player.position.x, y: player.position.y});
 //};
-}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_52a76c6c.js","/")
+}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_59d9ccd5.js","/")
 },{"../shared/game.core":7,"1YiZ5S":5,"buffer":2}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*!
@@ -1678,7 +1678,6 @@ var processInput = function (input) {
             player.body.y = player.body.y + (moveVelocity * input.dtSec);
         }
     });
-    //player.body.setZeroDamping();
 };
 
 var createPlayer = function(userid, x, y) {

@@ -9,7 +9,7 @@ var notify = require("gulp-notify");
 //// Basic usage
 gulp.task('scripts', function() {
     // Single entry point to browserify
-    gulp.src(['client/client.js'])
+    gulp.src(['client/client.js', 'shared/gameRenderer.js'])
         .pipe(browserify({
             insertGlobals : true,
             //cache: {},
