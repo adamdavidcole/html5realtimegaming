@@ -2,8 +2,9 @@
  * Created by adamcole on 4/3/16.
  */
 //var p2Render = require('/Users/adamcole/Documents/Penn2016Spring/CIS497/untitled1/node_modules/p2/build/p2.renderer.js');
-var game = require('/Users/adamcole/Documents/Penn2016Spring/CIS497/untitled1/shared/game.core2.js');
-game.init();
+var game = require('../shared/game.core2.js');
+var inputHandler = require('./inputHandler');
+var bodyTypes = require('../shared/constants').bodyTypes;
 
 var mpx = function (v) {
     return v *= 20;
@@ -30,7 +31,7 @@ var newPlayer = function(player) {
     return graphicObjs[player.id];
 };
 
-var player = game.players()[0];
+var player = game.getPlayers()[0];
 
 var createPuck = function() {
     var puckGraphics = new PIXI.Graphics();
@@ -46,12 +47,11 @@ var createPuck = function() {
 }
 
 var drawPlayers = function() {
-    var bodies = Object.keys(graphicObjs);
-    game.world().bodies.forEach(function(body) {
-        if (!body.gameType) return;
+    game.getWorld().bodies.forEach(function(body) {
+        if (!body.bodyType) return;
         var graphicObj = graphicObjs[body.id];
         if (!graphicObj) {
-            if (body.gameType === "player") graphicObj = newPlayer(body);
+            if (body.bodyType === bodyTypes.PLAYER) graphicObj = newPlayer(body);
         }
         var graphics = graphicObj.graphics;
         drawBody(body, graphics)
@@ -66,9 +66,9 @@ var drawBody = function(body, graphics) {
 
 
 var checkForRemovedPlayers = function() {
-    if (game.players().length !== players.length) {
+    if (game.getPlayers().length !== players.length) {
         var existingPlayers = [];
-        game.players().forEach(function(player) {
+        game.getPlayers().forEach(function(player) {
             existingPlayers.push(player);
         });
         players.forEach(function(player) {
@@ -87,6 +87,9 @@ var checkForRemovedPlayers = function() {
 };
 
 var init = function () {
+    game.init();
+    inputHandler.initInput();
+
     // Pixi.js zoom level
     zoom = 1;
 
@@ -108,7 +111,6 @@ var init = function () {
     container.scale.x =  zoom;  // zoom in
     container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
     createPuck();
-    initInput();
     animate();
 };
 
@@ -117,104 +119,23 @@ function animate(t){
     requestAnimationFrame(animate);
 
     // Move physics bodies forward in time
-    game.world().step(1/60);
+    game.getWorld().step(1/60);
 
     checkForRemovedPlayers();
     drawPlayers();
     // Render scene
     renderer.render(container);
+    handleInput();
 }
 
-function keyboard(keyCode) {
-    var key = {};
-    key.code = keyCode;
-    key.isDown = false;
-    key.isUp = true;
-    key.press = undefined;
-    key.release = undefined;
-    //The `downHandler`
-    key.downHandler = function(event) {
-        if (event.keyCode === key.code) {
-            if (key.isUp && key.press) key.press();
-            key.isDown = true;
-            key.isUp = false;
-        }
-        event.preventDefault();
-    };
 
-    //The `upHandler`
-    key.upHandler = function(event) {
-        if (event.keyCode === key.code) {
-            if (key.isDown && key.release) key.release();
-            key.isDown = false;
-            key.isUp = true;
-        }
-        event.preventDefault();
-    };
-
-    //Attach event listeners
-    window.addEventListener(
-        "keydown", key.downHandler.bind(key), false
-    );
-    window.addEventListener(
-        "keyup", key.upHandler.bind(key), false
-    );
-    return key;
+var handleInput = function() {
+    var inputs = inputHandler.getInputs();
+    if (!inputs.length) return;
+    game.processInput(inputs);
 };
 
-
-var initInput = function() {
-    //Capture the keyboard arrow keys
-    var left = keyboard(37),
-        up = keyboard(38),
-        right = keyboard(39),
-        down = keyboard(40),
-        a = keyboard(65),
-        d = keyboard(68);
-
-    var moveVelocity = 8;
-    var postVelocity = 0;
-    right.press = function() {
-        player.velocity[0] = moveVelocity;
-    };
-    right.release = function() {
-        player.velocity[0] =postVelocity;
-    };
-    left.press = function() {
-        player.velocity[0] = -moveVelocity;
-    };
-    left.release = function() {
-        player.velocity[0] = -postVelocity;
-    };
-    up.press = function() {
-        player.velocity[1] = -moveVelocity;
-    };
-    up.release = function() {
-        player.velocity[1] = -postVelocity;
-    };
-    down.press = function() {
-        player.velocity[1] = moveVelocity;
-    };
-    down.release = function() {
-        player.velocity[1] = postVelocity;
-    };
-
-    var angularMovement = 7.5;
-    var postAngularMovement = 0;
-
-    a.press = function() {
-        player.angularVelocity -= angularMovement;
-    };
-    a.release = function() {
-        player.angularVelocity = -postAngularMovement;
-    };
-
-    d.press = function() {
-        player.angularVelocity += angularMovement;
-    };
-    d.release = function() {
-        player.angularVelocity = postAngularMovement;
-    };
+module.exports = {
+    getGame: function() {return game;},
+    init: init
 };
-
-init();
