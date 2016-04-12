@@ -48,6 +48,28 @@ var createPuck = function() {
     container.addChild(puckGraphics);
 };
 
+var createArena = function() {
+    var arenaWalls = game.getArenaWalls();
+    arenaWalls.forEach(function (body) {
+        var graphics =  new PIXI.Graphics();
+        var pos_x = mpx(body.position[0]);
+        var pos_y = mpx(body.position[1]);
+        var angle = body.angle;
+        var boxShape = body.shapes[0];
+        if (!boxShape) return;
+        graphics.beginFill(0xff00ff);
+        graphics.drawRect(-mpx(boxShape.width/2), -mpx(boxShape.height/2), mpx(boxShape.width), mpx(boxShape.height));
+        graphics.rotation = angle;
+        graphics.position.x = pos_x;
+        graphics.position.y = pos_y;
+        container.addChild(graphics);
+        graphicObjs[body.id] = {
+            graphics: graphics,
+            body: body
+        }
+    });
+};
+
 var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
@@ -65,18 +87,26 @@ var drawBodies = function() {
 };
 
 var drawArena = function(body) {
-    var graphics =  new PIXI.Graphics();
-    console.log(body);
+    //var graphics =  new PIXI.Graphics();
+    //var pos_x = mpx(body.position[0]);
+    //var pos_y = mpx(body.position[1]);
+    //var angle = body.angle;
+    //var boxShape = body.shapes[0];
+    //if (!boxShape) return;
+    //var width = mpx(boxShape.width);
+    //var height= mpx(boxShape.height);
+    //graphics.beginFill(0xff00ff);
+    //graphics.drawRect(-mpx(boxShape.width/2), -mpx(boxShape.height/2), mpx(boxShape.width), mpx(boxShape.height));
+    //graphics.rotation = angle;
+    //graphics.position.x = pos_x;
+    //graphics.position.y = pos_y;
+    //container.addChild(graphics);
 };
 
 var drawBody = function(body, graphics) {
     graphics.position.x = mpx(body.position[0]);
     graphics.position.y = mpx(body.position[1]);
     graphics.rotation = body.angle;
-};
-
-var drawArena = function() {
-
 };
 
 var checkForRemovedPlayers = function() {
@@ -124,6 +154,7 @@ var init = function () {
     container.scale.x =  zoom;  // zoom in
     container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
     createPuck();
+    createArena();
     animate();
     handleInput();
 };

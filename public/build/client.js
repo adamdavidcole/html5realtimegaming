@@ -76,7 +76,7 @@ var endClientUpdateLoop = function() {
     clearInterval(clientUpdateLoop);
 };
 
-}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_c59ed0d8.js","/")
+}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_e00de73d.js","/")
 },{"./gameRenderer":2,"./inputHandler":3,"1YiZ5S":7,"buffer":4}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /**
@@ -129,6 +129,28 @@ var createPuck = function() {
     container.addChild(puckGraphics);
 };
 
+var createArena = function() {
+    var arenaWalls = game.getArenaWalls();
+    arenaWalls.forEach(function (body) {
+        var graphics =  new PIXI.Graphics();
+        var pos_x = mpx(body.position[0]);
+        var pos_y = mpx(body.position[1]);
+        var angle = body.angle;
+        var boxShape = body.shapes[0];
+        if (!boxShape) return;
+        graphics.beginFill(0xff00ff);
+        graphics.drawRect(-mpx(boxShape.width/2), -mpx(boxShape.height/2), mpx(boxShape.width), mpx(boxShape.height));
+        graphics.rotation = angle;
+        graphics.position.x = pos_x;
+        graphics.position.y = pos_y;
+        container.addChild(graphics);
+        graphicObjs[body.id] = {
+            graphics: graphics,
+            body: body
+        }
+    });
+};
+
 var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
@@ -146,18 +168,26 @@ var drawBodies = function() {
 };
 
 var drawArena = function(body) {
-    var graphics =  new PIXI.Graphics();
-    console.log(body);
+    //var graphics =  new PIXI.Graphics();
+    //var pos_x = mpx(body.position[0]);
+    //var pos_y = mpx(body.position[1]);
+    //var angle = body.angle;
+    //var boxShape = body.shapes[0];
+    //if (!boxShape) return;
+    //var width = mpx(boxShape.width);
+    //var height= mpx(boxShape.height);
+    //graphics.beginFill(0xff00ff);
+    //graphics.drawRect(-mpx(boxShape.width/2), -mpx(boxShape.height/2), mpx(boxShape.width), mpx(boxShape.height));
+    //graphics.rotation = angle;
+    //graphics.position.x = pos_x;
+    //graphics.position.y = pos_y;
+    //container.addChild(graphics);
 };
 
 var drawBody = function(body, graphics) {
     graphics.position.x = mpx(body.position[0]);
     graphics.position.y = mpx(body.position[1]);
     graphics.rotation = body.angle;
-};
-
-var drawArena = function() {
-
 };
 
 var checkForRemovedPlayers = function() {
@@ -205,6 +235,7 @@ var init = function () {
     container.scale.x =  zoom;  // zoom in
     container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
     createPuck();
+    createArena();
     animate();
     handleInput();
 };
@@ -15568,6 +15599,11 @@ var lastProcessedInput = 0;
 var arenaSides = 4;
 var arenaWalls = [];
 
+var PLAYER_CIRCLE_GROUP = Math.pow(2,0),
+    PLAYER_BOX_GROUP =  Math.pow(2,1),
+    ARENA_GROUP = Math.pow(2,2),
+    PUCK_GROUP = Math.pow(2,3);
+
 var init = function(_userid) {
     var initialArenaSize = 1;
 
@@ -15584,28 +15620,28 @@ var init = function(_userid) {
         mass: 0,
         position:[pxm(400),pxm(615)]
     });
-    var floorShape = new p2.Box({ width: pxm(1000), height: pxm(30)});
+    var floorShape = new p2.Box({ width: pxm(1000), height: pxm(30), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
     floorBody.addShape(floorShape);
 
     var rightWallBody = new p2.Body({
         mass: 0,
         position:[pxm(815),pxm(300)]
     });
-    var rightWallShape = new p2.Box({ width: pxm(30), height: pxm(1000)});
+    var rightWallShape = new p2.Box({ width: pxm(30), height: pxm(1000), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
     rightWallBody.addShape(rightWallShape);
 
     var leftWallBody = new p2.Body({
         mass: 0,
         position:[pxm(-30),pxm(300)]
     });
-    var leftWallShape = new p2.Box({ width: pxm(60), height: pxm(1000)});
+    var leftWallShape = new p2.Box({ width: pxm(60), height: pxm(1000), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
     leftWallBody.addShape(leftWallShape);
 
     var cielingBody = new p2.Body({
         mass: 0,
         position:[pxm(400),pxm(-15)]
     });
-    var cielingShape = new p2.Box({ width: pxm(1000), height: pxm(60)});
+    var cielingShape = new p2.Box({ width: pxm(1000), height: pxm(60), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
     cielingBody.addShape(cielingShape);
 
     world.addBody(floorBody);
@@ -15634,11 +15670,15 @@ var createPlayer = function(userid, x, y) {
         position:[pxm(x), pxm(y)],
     });
     var circleShape = new p2.Circle({
-        radius: pxm(25)
+        radius: pxm(25),
+        collisionGroup: PLAYER_CIRCLE_GROUP,
+        collisionMask: PLAYER_BOX_GROUP | ARENA_GROUP | PUCK_GROUP | PLAYER_CIRCLE_GROUP
     });
     var boxShape = new p2.Box({
         width: pxm(155),
-        height: pxm(15)
+        height: pxm(15),
+        collisionGroup: PLAYER_BOX_GROUP,
+        collisionMask: PUCK_GROUP
     });
     playerBody.addShape(circleShape);
     playerBody.addShape(boxShape);
@@ -15655,7 +15695,9 @@ var createPuck = function() {
         position:[pxm(450), pxm(200)],
     });
     var circleShape = new p2.Circle({
-        radius: pxm(20)
+        radius: pxm(20),
+        collisionGroup: PUCK_GROUP,
+        collisionMask: ARENA_GROUP | PLAYER_BOX_GROUP | PLAYER_CIRCLE_GROUP
     });
     puck.bodyType = bodyTypes.PUCK;
     puck.addShape(circleShape);
@@ -15674,8 +15716,8 @@ var getSideDistance = function(scale) {
 };
 
 var createArena = function(scale) {
-    var N = 8;
-    var r = pxm(350);
+    var N = 150;
+    var r = pxm(500);
     var x_centre = pxm(400);
     var y_centre = pxm(300);
     var theta = Math.PI/4;
@@ -15686,69 +15728,24 @@ var createArena = function(scale) {
         var y = r * Math.sin(2*Math.PI*n/N + theta) + y_centre
         var midx = (x+xprev)/2;
         var midy = (y+yprev)/2;
-        console.log("(",midx,",",midy,")");
         var body = new p2.Body({
             mass: 0,
             position: [midx,midy],
             angle: 2*Math.PI*(n-1)/N
         });
+        body.bodyType = bodyTypes.ARENA;
         var length = Math.sqrt((x-xprev)*(x-xprev) + (y-yprev)*(y-yprev));
         var side = new p2.Box({
-            width: length+10,
+            width: length + 15,
             height: pxm(20),
+            collisionGroup: ARENA_GROUP,
+            collisionMask: PUCK_GROUP | PLAYER_CIRCLE_GROUP
         });
         body.addShape(side);
-        console.log(body);
         world.addBody(body);
+        arenaWalls.push(body);
     }
 };
-
-//var createArena = function(scale) {
-   //A
-    //for (var i = 0; i < arenaSides; i++) {
-    //    var angle = (2 * Math.PI / arenaSides) * (1);
-    //var x = Math.cos(angle) * scale;
-    //var y = Math.sin(angle) * scale;
-    //var arenaSide = new p2.Body({
-    //    mass:0,
-    //    position:[x + pxm(300), y + pxm(400)],
-    //    angle: angle
-    //});
-    //arenaSide.bodyType = bodyTypes.ARENA;
-    //    console.log(i);
-    //    console.log(angle);
-    //console.log(scale);
-    //    var side = new p2.Box({
-    //        width: length,
-    //        height: arenaSideHeight
-    //    });
-    //arenaSide.addShape(side);
-        //arena.addShape(side);
-        //side.angle = angle;
-        //side.position = [0, scale];
-    //}.po
-        //var angle = (2*Math.PI/arenaSides) * (i);
-        //console.log("angle:", angle);
-        //console.log("length: ", length);
-        //var x2 = Math.cos(angle) * scale;
-        //var y2 = Math.sin(angle) * scale;
-        //console.log("center: (", x2, ",", y2, ")");
-        //if (x1 && y2) {
-        //    var side = new p2.Box({
-        //        width: length,
-        //        height: arenaSideHeight,
-        //        position: [(x2-x1)/2,(y2-y1)/2],
-        //        angle: angle
-        //    });
-        //    //console.log("x1:" , x1, "; x2: ", x2, "; y1 :", y1, "y2: ", y2, "(x2-x1)/2", (x2-x1)/2);
-        //    arena.addShape(side);
-        //}
-        //x1 = x2;
-        //y1 = y2;
-    //}
-    //world.addBody(arenaSide);
-    //console.log(arenaSide);
-//};
 
 var removePlayerById = function(playerid) {
     for (var i = 0; i < players.length; i++) {
@@ -15880,7 +15877,7 @@ module.exports = {
     getWorld: function() {return world;},
     getPlayers: function() {return players;},
     getPuck: function() {return puck;},
-    getArena: function() {return arena;},
+    getArenaWalls: function() {return arenaWalls;},
     getLastProcessedInput: function(){return lastProcessedInput},
     getUserId: function() {return userid;},
     setUserId: function(_userid) {userid = _userid;},
