@@ -22,6 +22,7 @@ var newPlayer = function(player) {
     var boxShape = player.shapes[1];
     graphics.drawRect(-mpx(boxShape.width/2), -mpx(boxShape.height/2), mpx(boxShape.width), mpx(boxShape.height));
     var circleShape = player.shapes[0];
+    graphics.beginFill(0xff0000);
     graphics.drawCircle(0, 0, mpx(circleShape.radius));
     graphicObjs[player.id] = {
         graphics: graphics,
@@ -36,7 +37,7 @@ var player = game.getPlayers()[0];
 
 var createPuck = function() {
     var puckGraphics = new PIXI.Graphics();
-    puckGraphics.beginFill(0x00ff00);
+    puckGraphics.beginFill(0xff3300);
     var puck = game.getPuck();
     var puckShape = puck.shapes[0];
     puckGraphics.drawCircle(0, 0, mpx(puckShape.radius));
@@ -45,18 +46,27 @@ var createPuck = function() {
         body: puck
     };
     container.addChild(puckGraphics);
-}
+};
 
-var drawPlayers = function() {
+var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
-        var graphicObj = graphicObjs[body.id];
-        if (!graphicObj) {
-            if (body.bodyType === bodyTypes.PLAYER) graphicObj = newPlayer(body);
+        if (body.bodyType === bodyTypes.ARENA) {
+            drawArena(body);
+        } else {
+            var graphicObj = graphicObjs[body.id];
+            if (!graphicObj) {
+                if (body.bodyType === bodyTypes.PLAYER) graphicObj = newPlayer(body);
+            }
+            var graphics = graphicObj.graphics;
+            drawBody(body, graphics)
         }
-        var graphics = graphicObj.graphics;
-        drawBody(body, graphics)
     });
+};
+
+var drawArena = function(body) {
+    var graphics =  new PIXI.Graphics();
+    console.log(body);
 };
 
 var drawBody = function(body, graphics) {
@@ -65,6 +75,9 @@ var drawBody = function(body, graphics) {
     graphics.rotation = body.angle;
 };
 
+var drawArena = function() {
+
+};
 
 var checkForRemovedPlayers = function() {
     if (game.getPlayers().length !== players.length) {
@@ -123,7 +136,7 @@ function animate(t){
     game.getWorld().step(1/60);
 
     checkForRemovedPlayers();
-    drawPlayers();
+    drawBodies();
     // Render scene
     renderer.render(container);
     //handleInput();

@@ -14,12 +14,16 @@ var isServer = false;
 var pxm = function (v) {
     return v * 0.05;
 };
-var moveVelocity = 6;
-var rotateVelocity = 7.5;
+var moveVelocity = 10;
+var rotateVelocity = 12;
 
 var lastProcessedInput = 0;
+var arenaSides = 4;
+var arenaWalls = [];
 
 var init = function(_userid) {
+    var initialArenaSize = 1;
+
     if (!_userid) isServer = true;
     else userid = _userid;
 
@@ -62,6 +66,7 @@ var init = function(_userid) {
     world.addBody(leftWallBody);
     world.addBody(cielingBody);
     createPuck();
+    createArena(initialArenaSize);
     world.on("beginContact", function(data) {
         if (data.shapeA.type === p2.Shape.CIRCLE && data.shapeB.type === p2.Shape.CIRCLE) {
             if (data.bodyA.bodyType !== bodyTypes.PUCK &&
@@ -75,18 +80,18 @@ var init = function(_userid) {
 var createPlayer = function(userid, x, y) {
     if (!x || !y) {
         x = 400;
-        y = 550;
+        y = 300;
     }
     var playerBody = new p2.Body({
-        mass:3,
+        mass:500,
         position:[pxm(x), pxm(y)],
     });
     var circleShape = new p2.Circle({
         radius: pxm(25)
     });
     var boxShape = new p2.Box({
-        width: pxm(150),
-        height: pxm(10)
+        width: pxm(155),
+        height: pxm(15)
     });
     playerBody.addShape(circleShape);
     playerBody.addShape(boxShape);
@@ -100,7 +105,7 @@ var createPlayer = function(userid, x, y) {
 var createPuck = function() {
     puck = new p2.Body({
         mass:1,
-        position:[pxm(400), pxm(300)],
+        position:[pxm(450), pxm(200)],
     });
     var circleShape = new p2.Circle({
         radius: pxm(20)
@@ -110,6 +115,93 @@ var createPuck = function() {
     world.addBody(puck);
     return puck;
 };
+
+var getSideDistance = function(scale) {
+    var angle = (2*Math.PI/arenaSides);
+    var x1 = Math.cos(angle) * scale;
+    var y1 = Math.sin(angle) * scale;
+    var x2 = Math.cos(angle*2) * scale;
+    var y2 = Math.sin(angle*2) * scale;
+    var d = Math.sqrt( (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) );
+    return d;
+};
+
+var createArena = function(scale) {
+    var N = 8;
+    var r = pxm(350);
+    var x_centre = pxm(400);
+    var y_centre = pxm(300);
+    var theta = Math.PI/4;
+    for (var n = 0; n < N; n++) {
+        var xprev = r * Math.cos(2*Math.PI*(n-1)/N + theta) + x_centre;
+        var yprev = r * Math.sin(2*Math.PI*(n-1)/N + theta) + y_centre;
+        var x = r * Math.cos(2*Math.PI*n/N + theta) + x_centre;
+        var y = r * Math.sin(2*Math.PI*n/N + theta) + y_centre
+        var midx = (x+xprev)/2;
+        var midy = (y+yprev)/2;
+        console.log("(",midx,",",midy,")");
+        var body = new p2.Body({
+            mass: 0,
+            position: [midx,midy],
+            angle: 2*Math.PI*(n-1)/N
+        });
+        var length = Math.sqrt((x-xprev)*(x-xprev) + (y-yprev)*(y-yprev));
+        var side = new p2.Box({
+            width: length+10,
+            height: pxm(20),
+        });
+        body.addShape(side);
+        console.log(body);
+        world.addBody(body);
+    }
+};
+
+//var createArena = function(scale) {
+   //A
+    //for (var i = 0; i < arenaSides; i++) {
+    //    var angle = (2 * Math.PI / arenaSides) * (1);
+    //var x = Math.cos(angle) * scale;
+    //var y = Math.sin(angle) * scale;
+    //var arenaSide = new p2.Body({
+    //    mass:0,
+    //    position:[x + pxm(300), y + pxm(400)],
+    //    angle: angle
+    //});
+    //arenaSide.bodyType = bodyTypes.ARENA;
+    //    console.log(i);
+    //    console.log(angle);
+    //console.log(scale);
+    //    var side = new p2.Box({
+    //        width: length,
+    //        height: arenaSideHeight
+    //    });
+    //arenaSide.addShape(side);
+        //arena.addShape(side);
+        //side.angle = angle;
+        //side.position = [0, scale];
+    //}.po
+        //var angle = (2*Math.PI/arenaSides) * (i);
+        //console.log("angle:", angle);
+        //console.log("length: ", length);
+        //var x2 = Math.cos(angle) * scale;
+        //var y2 = Math.sin(angle) * scale;
+        //console.log("center: (", x2, ",", y2, ")");
+        //if (x1 && y2) {
+        //    var side = new p2.Box({
+        //        width: length,
+        //        height: arenaSideHeight,
+        //        position: [(x2-x1)/2,(y2-y1)/2],
+        //        angle: angle
+        //    });
+        //    //console.log("x1:" , x1, "; x2: ", x2, "; y1 :", y1, "y2: ", y2, "(x2-x1)/2", (x2-x1)/2);
+        //    arena.addShape(side);
+        //}
+        //x1 = x2;
+        //y1 = y2;
+    //}
+    //world.addBody(arenaSide);
+    //console.log(arenaSide);
+//};
 
 var removePlayerById = function(playerid) {
     for (var i = 0; i < players.length; i++) {
@@ -133,8 +225,6 @@ var getPlayer = function(userid) {
 };
 
 var processInput = function(inputs, userid) {
-    console.log("processing input");
-    console.log(inputs);
     var player = getPlayer(userid);
     if (!player) return;
     inputs.forEach(function(input) {
@@ -157,16 +247,29 @@ var processInput = function(inputs, userid) {
             case inputTypes.ROTATE_RIGHT:
                 player.angularVelocity = rotateVelocity;
                 break;
-            case inputTypes.STOP:
-                player.velocity = [0,0];
-                player.angularVelocity = 0;
+            case inputTypes.STOP_RIGHT:
+                if (player.velocity[0] > 0) player.velocity[0] = 0;
+                break;
+            case inputTypes.STOP_LEFT:
+                if (player.velocity[0] < 0) player.velocity[0] = 0;
+                break;
+            case inputTypes.STOP_UP:
+                if (player.velocity[1] < 0) player.velocity[1] = 0;
+                break;
+            case inputTypes.STOP_DOWN:
+                if (player.velocity[1] > 0) player.velocity[1] = 0;
+                break;
+            case inputTypes.STOP_ROTATE_RIGHT:
+                if (player.angularVelocity > 0) player.angularVelocity = 0;
+                break;
+            case inputTypes.STOP_ROTATE_LEFT:
+                if (player.angularVelocity < 0) player.angularVelocity = 0;
                 break;
             default :
                 player.velocity = [0,0];
                 player.angularVelocity = 0;
         }
     });
-    console.log(player.velocity);
 };
 
 var serializeBody = function(body) {
@@ -230,6 +333,7 @@ module.exports = {
     getWorld: function() {return world;},
     getPlayers: function() {return players;},
     getPuck: function() {return puck;},
+    getArena: function() {return arena;},
     getLastProcessedInput: function(){return lastProcessedInput},
     getUserId: function() {return userid;},
     setUserId: function(_userid) {userid = _userid;},

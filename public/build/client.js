@@ -22,21 +22,20 @@ socket.on('onconnected', function (data) {
     game.setUserId(userid);
     socket.emit('requestToJoinRoom', {userid: userid});
 });
-//
+
 socket.on('onJoinedRoom', function (data) {
     console.log("joining room:", data);
     userid = data.userid;
     game.setUserId(userid);
-    console.log(data);
     game.applyState(data.state);
     beginClientUpdateLoop();
 });
-//
+
 socket.on('onNewPlayer', function (data){
     console.log("adding new player:", data);
     game.applyState(data.state);
 });
-//
+
 //socket.on('onPlayerDied', function (data) {
 //    console.log("player died:", data);
 //    game.removePlayer(data.userid);
@@ -44,7 +43,7 @@ socket.on('onNewPlayer', function (data){
 //        game.setGameOver();
 //    }
 //});
-//
+
 socket.on('ondisconnect', function(data) {
     console.log("player disconnected with id: " + data.userid);
     game.removePlayerById(data.userid);
@@ -77,7 +76,7 @@ var endClientUpdateLoop = function() {
     clearInterval(clientUpdateLoop);
 };
 
-}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_970f5cb6.js","/")
+}).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_c59ed0d8.js","/")
 },{"./gameRenderer":2,"./inputHandler":3,"1YiZ5S":7,"buffer":4}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /**
@@ -104,6 +103,7 @@ var newPlayer = function(player) {
     var boxShape = player.shapes[1];
     graphics.drawRect(-mpx(boxShape.width/2), -mpx(boxShape.height/2), mpx(boxShape.width), mpx(boxShape.height));
     var circleShape = player.shapes[0];
+    graphics.beginFill(0xff0000);
     graphics.drawCircle(0, 0, mpx(circleShape.radius));
     graphicObjs[player.id] = {
         graphics: graphics,
@@ -118,7 +118,7 @@ var player = game.getPlayers()[0];
 
 var createPuck = function() {
     var puckGraphics = new PIXI.Graphics();
-    puckGraphics.beginFill(0x00ff00);
+    puckGraphics.beginFill(0xff3300);
     var puck = game.getPuck();
     var puckShape = puck.shapes[0];
     puckGraphics.drawCircle(0, 0, mpx(puckShape.radius));
@@ -127,18 +127,27 @@ var createPuck = function() {
         body: puck
     };
     container.addChild(puckGraphics);
-}
+};
 
-var drawPlayers = function() {
+var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
-        var graphicObj = graphicObjs[body.id];
-        if (!graphicObj) {
-            if (body.bodyType === bodyTypes.PLAYER) graphicObj = newPlayer(body);
+        if (body.bodyType === bodyTypes.ARENA) {
+            drawArena(body);
+        } else {
+            var graphicObj = graphicObjs[body.id];
+            if (!graphicObj) {
+                if (body.bodyType === bodyTypes.PLAYER) graphicObj = newPlayer(body);
+            }
+            var graphics = graphicObj.graphics;
+            drawBody(body, graphics)
         }
-        var graphics = graphicObj.graphics;
-        drawBody(body, graphics)
     });
+};
+
+var drawArena = function(body) {
+    var graphics =  new PIXI.Graphics();
+    console.log(body);
 };
 
 var drawBody = function(body, graphics) {
@@ -147,6 +156,9 @@ var drawBody = function(body, graphics) {
     graphics.rotation = body.angle;
 };
 
+var drawArena = function() {
+
+};
 
 var checkForRemovedPlayers = function() {
     if (game.getPlayers().length !== players.length) {
@@ -205,7 +217,7 @@ function animate(t){
     game.getWorld().step(1/60);
 
     checkForRemovedPlayers();
-    drawPlayers();
+    drawBodies();
     // Render scene
     renderer.render(container);
     //handleInput();
@@ -296,34 +308,28 @@ var init = function() {
     var rightInterval;
     right.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_RIGHT);
-        //rightInterval = setInterval(function() {
-        //    unprocessedInputs.push(inputTypes.MOVE_RIGHT);
-        //}, 5);
     };
     right.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
-        //clearInterval(rightInterval);
+        unprocessedInputs.push(inputTypes.STOP_RIGHT);
     };
-
     left.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_LEFT);
     };
     left.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_LEFT);
     };
 
     up.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_UP);
     };
     up.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_UP);
     };
-
     down.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_DOWN);
     };
     down.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_DOWN);
     };
 
     //var angularMovement = 7.5;
@@ -332,14 +338,13 @@ var init = function() {
         unprocessedInputs.push(inputTypes.ROTATE_LEFT);
     };
     a.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_ROTATE_LEFT);
     };
-
     d.press = function() {
         unprocessedInputs.push(inputTypes.ROTATE_RIGHT);
     };
     d.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_ROTATE_RIGHT);
     };
 };
 
@@ -15523,13 +15528,19 @@ exports.inputTypes = {
     MOVE_DOWN: 3,
     ROTATE_RIGHT: 4,
     ROTATE_LEFT: 5,
-    STOP_RIGHT: 6,
-    STOP: 7
+    STOP: 6,
+    STOP_RIGHT: 7,
+    STOP_LEFT: 8,
+    STOP_UP: 9,
+    STOP_DOWN: 10,
+    STOP_ROTATE_LEFT: 11,
+    STOP_ROTATE_RIGHT: 12
 };
 
 exports.bodyTypes = {
     PLAYER: "player",
-    PUCK: "puck"
+    PUCK: "puck",
+    ARENA: "arena"
 };
 }).call(this,require("1YiZ5S"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/../shared/constants.js","/../shared")
 },{"1YiZ5S":7,"buffer":4}],70:[function(require,module,exports){
@@ -15550,12 +15561,16 @@ var isServer = false;
 var pxm = function (v) {
     return v * 0.05;
 };
-var moveVelocity = 6;
-var rotateVelocity = 7.5;
+var moveVelocity = 10;
+var rotateVelocity = 12;
 
 var lastProcessedInput = 0;
+var arenaSides = 4;
+var arenaWalls = [];
 
 var init = function(_userid) {
+    var initialArenaSize = 1;
+
     if (!_userid) isServer = true;
     else userid = _userid;
 
@@ -15598,6 +15613,7 @@ var init = function(_userid) {
     world.addBody(leftWallBody);
     world.addBody(cielingBody);
     createPuck();
+    createArena(initialArenaSize);
     world.on("beginContact", function(data) {
         if (data.shapeA.type === p2.Shape.CIRCLE && data.shapeB.type === p2.Shape.CIRCLE) {
             if (data.bodyA.bodyType !== bodyTypes.PUCK &&
@@ -15611,18 +15627,18 @@ var init = function(_userid) {
 var createPlayer = function(userid, x, y) {
     if (!x || !y) {
         x = 400;
-        y = 550;
+        y = 300;
     }
     var playerBody = new p2.Body({
-        mass:3,
+        mass:500,
         position:[pxm(x), pxm(y)],
     });
     var circleShape = new p2.Circle({
         radius: pxm(25)
     });
     var boxShape = new p2.Box({
-        width: pxm(150),
-        height: pxm(10)
+        width: pxm(155),
+        height: pxm(15)
     });
     playerBody.addShape(circleShape);
     playerBody.addShape(boxShape);
@@ -15636,7 +15652,7 @@ var createPlayer = function(userid, x, y) {
 var createPuck = function() {
     puck = new p2.Body({
         mass:1,
-        position:[pxm(400), pxm(300)],
+        position:[pxm(450), pxm(200)],
     });
     var circleShape = new p2.Circle({
         radius: pxm(20)
@@ -15646,6 +15662,93 @@ var createPuck = function() {
     world.addBody(puck);
     return puck;
 };
+
+var getSideDistance = function(scale) {
+    var angle = (2*Math.PI/arenaSides);
+    var x1 = Math.cos(angle) * scale;
+    var y1 = Math.sin(angle) * scale;
+    var x2 = Math.cos(angle*2) * scale;
+    var y2 = Math.sin(angle*2) * scale;
+    var d = Math.sqrt( (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) );
+    return d;
+};
+
+var createArena = function(scale) {
+    var N = 8;
+    var r = pxm(350);
+    var x_centre = pxm(400);
+    var y_centre = pxm(300);
+    var theta = Math.PI/4;
+    for (var n = 0; n < N; n++) {
+        var xprev = r * Math.cos(2*Math.PI*(n-1)/N + theta) + x_centre;
+        var yprev = r * Math.sin(2*Math.PI*(n-1)/N + theta) + y_centre;
+        var x = r * Math.cos(2*Math.PI*n/N + theta) + x_centre;
+        var y = r * Math.sin(2*Math.PI*n/N + theta) + y_centre
+        var midx = (x+xprev)/2;
+        var midy = (y+yprev)/2;
+        console.log("(",midx,",",midy,")");
+        var body = new p2.Body({
+            mass: 0,
+            position: [midx,midy],
+            angle: 2*Math.PI*(n-1)/N
+        });
+        var length = Math.sqrt((x-xprev)*(x-xprev) + (y-yprev)*(y-yprev));
+        var side = new p2.Box({
+            width: length+10,
+            height: pxm(20),
+        });
+        body.addShape(side);
+        console.log(body);
+        world.addBody(body);
+    }
+};
+
+//var createArena = function(scale) {
+   //A
+    //for (var i = 0; i < arenaSides; i++) {
+    //    var angle = (2 * Math.PI / arenaSides) * (1);
+    //var x = Math.cos(angle) * scale;
+    //var y = Math.sin(angle) * scale;
+    //var arenaSide = new p2.Body({
+    //    mass:0,
+    //    position:[x + pxm(300), y + pxm(400)],
+    //    angle: angle
+    //});
+    //arenaSide.bodyType = bodyTypes.ARENA;
+    //    console.log(i);
+    //    console.log(angle);
+    //console.log(scale);
+    //    var side = new p2.Box({
+    //        width: length,
+    //        height: arenaSideHeight
+    //    });
+    //arenaSide.addShape(side);
+        //arena.addShape(side);
+        //side.angle = angle;
+        //side.position = [0, scale];
+    //}.po
+        //var angle = (2*Math.PI/arenaSides) * (i);
+        //console.log("angle:", angle);
+        //console.log("length: ", length);
+        //var x2 = Math.cos(angle) * scale;
+        //var y2 = Math.sin(angle) * scale;
+        //console.log("center: (", x2, ",", y2, ")");
+        //if (x1 && y2) {
+        //    var side = new p2.Box({
+        //        width: length,
+        //        height: arenaSideHeight,
+        //        position: [(x2-x1)/2,(y2-y1)/2],
+        //        angle: angle
+        //    });
+        //    //console.log("x1:" , x1, "; x2: ", x2, "; y1 :", y1, "y2: ", y2, "(x2-x1)/2", (x2-x1)/2);
+        //    arena.addShape(side);
+        //}
+        //x1 = x2;
+        //y1 = y2;
+    //}
+    //world.addBody(arenaSide);
+    //console.log(arenaSide);
+//};
 
 var removePlayerById = function(playerid) {
     for (var i = 0; i < players.length; i++) {
@@ -15669,8 +15772,6 @@ var getPlayer = function(userid) {
 };
 
 var processInput = function(inputs, userid) {
-    console.log("processing input");
-    console.log(inputs);
     var player = getPlayer(userid);
     if (!player) return;
     inputs.forEach(function(input) {
@@ -15688,21 +15789,34 @@ var processInput = function(inputs, userid) {
                 player.velocity[1] = moveVelocity;
                 break;
             case inputTypes.ROTATE_LEFT:
-                player.angularVelocity = rotateVelocity;
+                player.angularVelocity = rotateVelocity * -1;
                 break;
             case inputTypes.ROTATE_RIGHT:
                 player.angularVelocity = rotateVelocity;
                 break;
-            case inputTypes.STOP:
-                player.velocity = [0,0];
-                player.angularVelocity = 0;
+            case inputTypes.STOP_RIGHT:
+                if (player.velocity[0] > 0) player.velocity[0] = 0;
+                break;
+            case inputTypes.STOP_LEFT:
+                if (player.velocity[0] < 0) player.velocity[0] = 0;
+                break;
+            case inputTypes.STOP_UP:
+                if (player.velocity[1] < 0) player.velocity[1] = 0;
+                break;
+            case inputTypes.STOP_DOWN:
+                if (player.velocity[1] > 0) player.velocity[1] = 0;
+                break;
+            case inputTypes.STOP_ROTATE_RIGHT:
+                if (player.angularVelocity > 0) player.angularVelocity = 0;
+                break;
+            case inputTypes.STOP_ROTATE_LEFT:
+                if (player.angularVelocity < 0) player.angularVelocity = 0;
                 break;
             default :
                 player.velocity = [0,0];
                 player.angularVelocity = 0;
         }
     });
-    console.log(player.velocity);
 };
 
 var serializeBody = function(body) {
@@ -15766,6 +15880,7 @@ module.exports = {
     getWorld: function() {return world;},
     getPlayers: function() {return players;},
     getPuck: function() {return puck;},
+    getArena: function() {return arena;},
     getLastProcessedInput: function(){return lastProcessedInput},
     getUserId: function() {return userid;},
     setUserId: function(_userid) {userid = _userid;},

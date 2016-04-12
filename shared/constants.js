@@ -9,11 +9,17 @@ exports.inputTypes = {
     MOVE_DOWN: 3,
     ROTATE_RIGHT: 4,
     ROTATE_LEFT: 5,
-    STOP_RIGHT: 6,
-    STOP: 7
+    STOP: 6,
+    STOP_RIGHT: 7,
+    STOP_LEFT: 8,
+    STOP_UP: 9,
+    STOP_DOWN: 10,
+    STOP_ROTATE_LEFT: 11,
+    STOP_ROTATE_RIGHT: 12
 };
 
 exports.bodyTypes = {
     PLAYER: "player",
-    PUCK: "puck"
+    PUCK: "puck",
+    ARENA: "arena"
 };

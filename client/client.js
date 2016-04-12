@@ -20,21 +20,20 @@ socket.on('onconnected', function (data) {
     game.setUserId(userid);
     socket.emit('requestToJoinRoom', {userid: userid});
 });
-//
+
 socket.on('onJoinedRoom', function (data) {
     console.log("joining room:", data);
     userid = data.userid;
     game.setUserId(userid);
-    console.log(data);
     game.applyState(data.state);
     beginClientUpdateLoop();
 });
-//
+
 socket.on('onNewPlayer', function (data){
     console.log("adding new player:", data);
     game.applyState(data.state);
 });
-//
+
 //socket.on('onPlayerDied', function (data) {
 //    console.log("player died:", data);
 //    game.removePlayer(data.userid);
@@ -42,7 +41,7 @@ socket.on('onNewPlayer', function (data){
 //        game.setGameOver();
 //    }
 //});
-//
+
 socket.on('ondisconnect', function(data) {
     console.log("player disconnected with id: " + data.userid);
     game.removePlayerById(data.userid);

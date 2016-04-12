@@ -58,34 +58,28 @@ var init = function() {
     var rightInterval;
     right.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_RIGHT);
-        //rightInterval = setInterval(function() {
-        //    unprocessedInputs.push(inputTypes.MOVE_RIGHT);
-        //}, 5);
     };
     right.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
-        //clearInterval(rightInterval);
+        unprocessedInputs.push(inputTypes.STOP_RIGHT);
     };
-
     left.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_LEFT);
     };
     left.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_LEFT);
     };
 
     up.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_UP);
     };
     up.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_UP);
     };
-
     down.press = function() {
         unprocessedInputs.push(inputTypes.MOVE_DOWN);
     };
     down.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_DOWN);
     };
 
     //var angularMovement = 7.5;
@@ -94,14 +88,13 @@ var init = function() {
         unprocessedInputs.push(inputTypes.ROTATE_LEFT);
     };
     a.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_ROTATE_LEFT);
     };
-
     d.press = function() {
         unprocessedInputs.push(inputTypes.ROTATE_RIGHT);
     };
     d.release = function() {
-        unprocessedInputs.push(inputTypes.STOP);
+        unprocessedInputs.push(inputTypes.STOP_ROTATE_RIGHT);
     };
 };
 
