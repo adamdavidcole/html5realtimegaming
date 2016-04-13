@@ -40,8 +40,18 @@ var initIO = function(io) {
         });
     });
 
+    var fixedTimeStep = 1 / 60;
+    var maxSubSteps = 10;
+    var lastTimeMilliseconds;
+
     var serverPhysicsLoop = setInterval(function() {
-        game.getWorld().step(1/60);
+        var timeSinceLastCall = 0;
+        var timeMilliseconds = Date.now();
+        if(timeMilliseconds !== undefined && lastTimeMilliseconds !== undefined){
+            timeSinceLastCall = (timeMilliseconds - lastTimeMilliseconds) / 1000;
+        };
+        game.getWorld().step(fixedTimeStep, timeSinceLastCall, maxSubSteps);
+        lastTimeMilliseconds = timeMilliseconds;
     }, 15);
 
     var serverUpdateLoop = setInterval(function() {

@@ -75,7 +75,7 @@ var createArena = function() {
 var createBackground = function() {
     var graphics =  new PIXI.Graphics();
     graphics.beginFill(0x333333);
-    graphics.drawRect(-mpx(0), -mpx(0), mpx(worldWidth), mpx(worldHeight));
+    graphics.drawRect(-mpx(worldWidth/2), -mpx(worldHeight/2), mpx(worldWidth), mpx(worldHeight));
     //graphics.position.x = worldHeight/2;
     //graphics.position.y = worldHeight/2;
     container.addChild(graphics);
@@ -89,7 +89,7 @@ var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
         if (body.bodyType === bodyTypes.ARENA) {
-            drawArena(body);
+            return;
         } else {
             var graphicObj = graphicObjs[body.id];
             if (!graphicObj) {
@@ -99,23 +99,6 @@ var drawBodies = function() {
             drawBody(body, graphics)
         }
     });
-};
-
-var drawArena = function(body) {
-    //var graphics =  new PIXI.Graphics();
-    //var pos_x = mpx(body.position[0]);
-    //var pos_y = mpx(body.position[1]);
-    //var angle = body.angle;
-    //var boxShape = body.shapes[0];
-    //if (!boxShape) return;
-    //var width = mpx(boxShape.width);
-    //var height= mpx(boxShape.height);
-    //graphics.beginFill(0xff00ff);
-    //graphics.drawRect(-mpx(boxShape.width/2), -mpx(boxShape.height/2), mpx(boxShape.width), mpx(boxShape.height));
-    //graphics.rotation = angle;
-    //graphics.position.x = pos_x;
-    //graphics.position.y = pos_y;
-    //container.addChild(graphics);
 };
 
 var drawBody = function(body, graphics) {
@@ -152,48 +135,90 @@ var init = function () {
     zoom = 1;
 
     // Initialize the stage
-    renderer =  PIXI.autoDetectRenderer(800, 600);
+    renderer =  PIXI.autoDetectRenderer();
+    //renderer.autoResize = true;
     //stage = new PIXI.Stage(0xFFFFFF);
 
     // We use a container inside the stage for all our content
     // This enables us to zoom and translate the content
     container =     new PIXI.Container();
     //stage.addChild(container);
+    resize();
 
     // Add the canvas to the DOM
     document.body.appendChild(renderer.view);
 
     // Add transform to the container
-    container.position.x =  0; // center at origin
-    container.position.y =  0;
+    container.position.x =  window.innerWidth/2; // center at origin
+    container.position.y =  window.innerHeight/2;
     container.scale.x =  zoom;  // zoom in
     container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
     createBackground();
     createPuck();
     createArena();
-    animate();
-    handleInput();
+
     //var interaction = new PIXI.interaction.InteractionManager(renderer);
     container.interactive = true;
     container.mousedown = function(e) {
         var point = e.data.getLocalPosition(container);
         console.log("globX", point.x, "globY", point.y, "pixiX", point.x/20, "pixiY", point.y/20);
     }
+    addEvent(window, "resize", resize);
+
+    animate();
+    handleInput();
 };
+
+var resize = function(e) {
+    renderer.resize(window.innerWidth, window.innerHeight);
+    container.position.x =  window.innerWidth/2;
+    container.position.y =  window.innerHeight/2;
+};
+
+var positionCamera = function() {
+    var player = game.getThisPlayer();
+    if (!player) return;
+    container.position.x = window.innerWidth/2 - mpx(player.position[0]);
+    container.position.y = (window.innerHeight/2) - mpx(player.position[1]);
+};
+
+var addEvent = function(object, type, callback) {
+    if (object == null || typeof(object) == 'undefined') return;
+    if (object.addEventListener) {
+        object.addEventListener(type, callback, false);
+    } else if (object.attachEvent) {
+        object.attachEvent("on" + type, callback);
+    } else {
+        object["on"+type] = callback;
+    }
+};
+
+var fixedTimeStep = 1 / 60;
+var maxSubSteps = 10;
+var lastTimeMilliseconds;
 
 function animate(t){
     t = t || 0;
     requestAnimationFrame(animate);
 
+    var timeSinceLastCall = 0;
+    var timeMilliseconds = Date.now();
+    if(timeMilliseconds !== undefined && lastTimeMilliseconds !== undefined){
+        timeSinceLastCall = (timeMilliseconds - lastTimeMilliseconds) / 1000;
+    };
     // Move physics bodies forward in time
-    game.getWorld().step(1/60);
-
+    game.getWorld().step(fixedTimeStep, timeSinceLastCall, maxSubSteps);
+    lastTimeMilliseconds = timeMilliseconds;
     checkForRemovedPlayers();
     drawBodies();
     // Render scene
+    positionCamera();
     renderer.render(container);
     //handleInput();
 }
+
+
+
 
 
 var handleInput = function() {
