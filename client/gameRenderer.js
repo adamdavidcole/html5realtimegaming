@@ -70,6 +70,25 @@ var createArena = function() {
             body: body
         }
     });
+
+    var endpoints = game.getEndpoints();
+    endpoints.forEach(function (body) {
+        console.log(body);
+        var graphics =  new PIXI.Graphics();
+        var pos_x = mpx(body.position[0]);
+        var pos_y = mpx(body.position[1]);
+        var circleShape = body.shapes[0];
+        if (!circleShape) return;
+        graphics.beginFill(0xff00ff);
+        graphics.drawCircle(0, 0, mpx(circleShape.radius));
+        graphics.position.x = pos_x;
+        graphics.position.y = pos_y;
+        container.addChild(graphics);
+        graphicObjs[body.id] = {
+            graphics: graphics,
+            body: body
+        }
+    });
 };
 
 var createBackground = function() {
@@ -88,7 +107,7 @@ var createBackground = function() {
 var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
-        if (body.bodyType === bodyTypes.ARENA) {
+        if (body.bodyType === bodyTypes.ARENA || body.bodyType === bodyTypes.ENDPOINT) {
             return;
         } else {
             var graphicObj = graphicObjs[body.id];
@@ -132,7 +151,7 @@ var init = function () {
     game.init();
     inputHandler.init();
     // Pixi.js zoom level
-    zoom = 1;
+    zoom = 1.25;
 
     // Initialize the stage
     renderer =  PIXI.autoDetectRenderer();

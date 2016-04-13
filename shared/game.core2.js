@@ -16,16 +16,17 @@ var pxm = function (v) {
     return v * 0.05;
 };
 
-var worldWidth = 800;
-var worldHeight = 800;
+var worldWidth = 900;
+var worldHeight = 900;
 
-var moveVelocity = 10;
+var moveVelocity = 12;
 var rotateVelocity = 11;
 
 var lastProcessedInput = 0;
 var arenaSides = 10;
 var arenaWalls = [];
 var bounds = [];
+var endpoints = [];
 
 var friction = .9;
 var applyFrictionHorizontal = true;
@@ -59,7 +60,7 @@ var init = function(_userid) {
         }
     });
     world.on("postStep", applyFriction);
-    //world.defaultContactMaterial.friction = 50;
+    world.defaultContactMaterial.friction = 50;
     world.defaultContactMaterial.restitution = .5;
 };
 
@@ -164,7 +165,8 @@ var createArena = function() {
     var theta = 0;
     var angle = (2*Math.PI) / N;
     var sideLength = getSideDistance(r)+2;
-    var sideHeight = pxm(40);
+    var sideHeight = pxm(30);
+    var endpointRadius = pxm(45);
     for (var n = 0; n < N; n++) {
         var x = r * Math.cos(angle * n + theta) + x_centre;
         var y = r * Math.sin(angle * n + theta) + y_centre;
@@ -185,8 +187,21 @@ var createArena = function() {
             collisionMask: PUCK_GROUP | PLAYER_CIRCLE_GROUP,
         });
         body.addShape(side);
+
+        var endpointBody = new p2.Body({
+            mass: 0,
+            position: [x, y]
+        });
+        var endpointCirlce = new p2.Circle({
+            radius: endpointRadius,
+            collisionGroup: ARENA_GROUP,
+            collisionMask: PUCK_GROUP | PLAYER_CIRCLE_GROUP
+        });
+        endpointBody.addShape(endpointCirlce);
         world.addBody(body);
+        world.addBody(endpointBody);
         arenaWalls.push(body);
+        endpoints.push(endpointBody);
     }
 };
 
@@ -343,6 +358,7 @@ module.exports = {
     getThisPlayer: function() {return thisPlayer;},
     getPuck: function() {return puck;},
     getArenaWalls: function() {return arenaWalls;},
+    getEndpoints: function() {return endpoints;},
     getLastProcessedInput: function(){return lastProcessedInput},
     getUserId: function() {return userid;},
     setUserId: function(_userid) {userid = _userid;},

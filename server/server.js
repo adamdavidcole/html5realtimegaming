@@ -38,7 +38,6 @@ var initIO = function(io) {
         });
         //
         socket.on('clientInput', function(data) {
-            console.log(data.clientInput);
             lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
             game.processInput(data.clientInput.inputs, data.clientInput.userid);
         });
@@ -60,7 +59,6 @@ var initIO = function(io) {
 
     var serverUpdateLoop = setInterval(function() {
         var state = game.getGameState();
-        //if (state.players.length) console.log(state.players[0].position);
         io.sockets.emit('onserverupdate', {state: state, lastProcessedInput:lastProcessedInput});
     }, 45);
 };

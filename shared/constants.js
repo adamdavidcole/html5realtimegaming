@@ -22,5 +22,6 @@ exports.bodyTypes = {
     PLAYER: "player",
     PUCK: "puck",
     ARENA: "arena",
-    BOUND: "bound"
+    BOUND: "bound",
+    ENDPOINT: "endpoint"
 };
