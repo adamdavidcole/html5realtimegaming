@@ -14,11 +14,15 @@ var isServer = false;
 var pxm = function (v) {
     return v * 0.05;
 };
+
+var worldWidth = 800;
+var worldHeight = 600;
+
 var moveVelocity = 10;
-var rotateVelocity = 12;
+var rotateVelocity = 11;
 
 var lastProcessedInput = 0;
-var arenaSides = 4;
+var arenaSides = 10;
 var arenaWalls = [];
 
 var PLAYER_CIRCLE_GROUP = Math.pow(2,0),
@@ -80,12 +84,13 @@ var init = function(_userid) {
             if (nonPuckBody.bodyType === bodyTypes.PLAYER) removePlayer(nonPuckBody);
         }
     });
+    world.defaultContactMaterial.restitution = .5;
 };
 
 var createPlayer = function(userid, x, y) {
     if (!x || !y) {
         x = 400;
-        y = 300;
+        y = 500;
     }
     var playerBody = new p2.Body({
         mass:500,
@@ -97,7 +102,7 @@ var createPlayer = function(userid, x, y) {
         collisionMask: PLAYER_BOX_GROUP | ARENA_GROUP | PUCK_GROUP | PLAYER_CIRCLE_GROUP
     });
     var boxShape = new p2.Box({
-        width: pxm(155),
+        width: pxm(165),
         height: pxm(15),
         collisionGroup: PLAYER_BOX_GROUP,
         collisionMask: PUCK_GROUP
@@ -127,41 +132,42 @@ var createPuck = function() {
     return puck;
 };
 
-var getSideDistance = function(scale) {
+var getSideDistance = function(r) {
     var angle = (2*Math.PI/arenaSides);
-    var x1 = Math.cos(angle) * scale;
-    var y1 = Math.sin(angle) * scale;
-    var x2 = Math.cos(angle*2) * scale;
-    var y2 = Math.sin(angle*2) * scale;
-    var d = Math.sqrt( (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) );
-    return d;
+    var x = r * Math.cos(0);
+    var y = r * Math.sin(0);
+    var xnext = r * Math.cos(angle);
+    var ynext = r * Math.sin(angle);
+    return Math.sqrt((xnext-x)*(xnext-x) + (ynext-y)*(ynext-y));
 };
 
-var createArena = function(scale) {
-    var N = 150;
-    var r = pxm(500);
-    var x_centre = pxm(400);
-    var y_centre = pxm(300);
-    var theta = Math.PI/4;
+var createArena = function() {
+    var N = arenaSides;
+    var r = pxm(Math.min(worldWidth,worldHeight)/2) + 5;
+    var x_centre = pxm(worldWidth/2);
+    var y_centre = pxm(worldHeight/2);
+    var theta = 0;
+    var angle = (2*Math.PI) / N;
+    var sideLength = getSideDistance(r)+2;
+    var sideHeight = pxm(40);
     for (var n = 0; n < N; n++) {
-        var xprev = r * Math.cos(2*Math.PI*(n-1)/N + theta) + x_centre;
-        var yprev = r * Math.sin(2*Math.PI*(n-1)/N + theta) + y_centre;
-        var x = r * Math.cos(2*Math.PI*n/N + theta) + x_centre;
-        var y = r * Math.sin(2*Math.PI*n/N + theta) + y_centre
-        var midx = (x+xprev)/2;
-        var midy = (y+yprev)/2;
+        var x = r * Math.cos(angle * n + theta) + x_centre;
+        var y = r * Math.sin(angle * n + theta) + y_centre;
+        var xnext = r * Math.cos(angle * (n+1) + theta) + x_centre;
+        var ynext = r * Math.sin(angle * (n+1) + theta) + y_centre;
+        var midx = (x+xnext)/2;
+        var midy = (y+ynext)/2;
         var body = new p2.Body({
             mass: 0,
             position: [midx,midy],
-            angle: 2*Math.PI*(n-1)/N
+            angle: (-1 * (Math.PI - angle)/2) + angle*n
         });
         body.bodyType = bodyTypes.ARENA;
-        var length = Math.sqrt((x-xprev)*(x-xprev) + (y-yprev)*(y-yprev));
         var side = new p2.Box({
-            width: length + 15,
-            height: pxm(20),
+            width: sideLength,
+            height: sideHeight,
             collisionGroup: ARENA_GROUP,
-            collisionMask: PUCK_GROUP | PLAYER_CIRCLE_GROUP
+            collisionMask: PUCK_GROUP | PLAYER_CIRCLE_GROUP,
         });
         body.addShape(side);
         world.addBody(body);

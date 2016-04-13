@@ -12,6 +12,8 @@ var mpx = function (v) {
 };
 
 var renderer, container, graphics, zoom;
+var worldWidth = 800;
+var worldHeight = 600;
 
 var graphicObjs = {};
 var players = [];
@@ -68,6 +70,19 @@ var createArena = function() {
             body: body
         }
     });
+};
+
+var createBackground = function() {
+    var graphics =  new PIXI.Graphics();
+    graphics.beginFill(0x333333);
+    graphics.drawRect(-mpx(0), -mpx(0), mpx(worldWidth), mpx(worldHeight));
+    //graphics.position.x = worldHeight/2;
+    //graphics.position.y = worldHeight/2;
+    container.addChild(graphics);
+    //graphicObjs[body.id] = {
+    //    graphics: graphics,
+    //    body: body
+    //}
 };
 
 var drawBodies = function() {
@@ -153,10 +168,17 @@ var init = function () {
     container.position.y =  0;
     container.scale.x =  zoom;  // zoom in
     container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
+    createBackground();
     createPuck();
     createArena();
     animate();
     handleInput();
+    //var interaction = new PIXI.interaction.InteractionManager(renderer);
+    container.interactive = true;
+    container.mousedown = function(e) {
+        var point = e.data.getLocalPosition(container);
+        console.log("globX", point.x, "globY", point.y, "pixiX", point.x/20, "pixiY", point.y/20);
+    }
 };
 
 function animate(t){

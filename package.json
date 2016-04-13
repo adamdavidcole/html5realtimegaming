@@ -17,6 +17,7 @@
     "gulp-browserify": "^0.5.1",
     "gulp-notify": "*",
     "jsdom": "^8.2.0",
+    "lodash.assign": "^4.0.7",
     "morgan": "~1.6.1",
     "node-uuid": "^1.4.7",
     "phaser": "^2.4.6",
