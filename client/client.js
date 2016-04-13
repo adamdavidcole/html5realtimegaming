@@ -10,6 +10,8 @@ var clientUpdateLoop;
 var last_ts;
 var inputSequenceNumber = 0;
 
+var clientSidePrediction = false;
+
 renderer.init();
 inputHandler.init();
 
@@ -67,6 +69,9 @@ var beginClientUpdateLoop = function() {
         clientInput.userid = game.getUserId();
         clientInput.inputSequenceNumber = inputSequenceNumber++;
         socket.emit('clientInput', {clientInput: clientInput});
+        if (clientSidePrediction) {
+            game.processInput(clientInput.inputs, clientInput.userid);
+        }
     }, 15)
 };
 
