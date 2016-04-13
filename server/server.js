@@ -6,6 +6,7 @@ var game = require('../shared/game.core2');
 var uuid = require('node-uuid');
 
 var sockets = {};
+var lastProcessedInput = {};
 
 var init = function(io) {
     //io = _io;
@@ -23,6 +24,7 @@ var initIO = function(io) {
         socket.on('requestToJoinRoom', function (data) {
             console.log('requesttojoinroom')
             game.createPlayer(socket.userid);
+            lastProcessedInput[socket.userid] = 0;
             var state =  game.getGameState();
             socket.emit("onJoinedRoom", {userid: socket.userid, state:state});
             socket.broadcast.emit("onNewPlayer", {state: state});
@@ -36,6 +38,8 @@ var initIO = function(io) {
         });
         //
         socket.on('clientInput', function(data) {
+            console.log(data.clientInput);
+            lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
             game.processInput(data.clientInput.inputs, data.clientInput.userid);
         });
     });
@@ -57,7 +61,7 @@ var initIO = function(io) {
     var serverUpdateLoop = setInterval(function() {
         var state = game.getGameState();
         //if (state.players.length) console.log(state.players[0].position);
-        io.sockets.emit('onserverupdate', {state: state});
+        io.sockets.emit('onserverupdate', {state: state, lastProcessedInput:lastProcessedInput});
     }, 45);
 };
 

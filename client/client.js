@@ -10,7 +10,9 @@ var clientUpdateLoop;
 var last_ts;
 var inputSequenceNumber = 0;
 
-var clientSidePrediction = false;
+var clientSidePrediction = true;
+var reconciliation = true;
+var pending_inputs = [];
 
 renderer.init();
 inputHandler.init();
@@ -51,6 +53,22 @@ socket.on('ondisconnect', function(data) {
 
 socket.on('onserverupdate', function(data) {
     game.applyState(data.state);
+    var j = 0;
+    while (j < pending_inputs.length) {
+        var input = pending_inputs[j];
+        var last_server_input = data.lastProcessedInput[userid];
+        console.log(last_server_input);
+        if (input.inputSequenceNumber <= last_server_input) {
+            // Already processed. Its effect is already taken into account
+            // into the world update we just got, so we can drop it.
+            pending_inputs.splice(j, 1);
+        } else {
+            console.log("reconcilling");
+            // Not processed by the server yet. Re-apply it.
+            game.processInput(input.inputs, userid);
+            j++;
+        }
+    }
 });
 
 var beginClientUpdateLoop = function() {
@@ -71,6 +89,9 @@ var beginClientUpdateLoop = function() {
         socket.emit('clientInput', {clientInput: clientInput});
         if (clientSidePrediction) {
             game.processInput(clientInput.inputs, clientInput.userid);
+        }
+        if (reconciliation) {
+            pending_inputs.push(clientInput);
         }
     }, 15)
 };
