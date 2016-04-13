@@ -25,6 +25,7 @@ socket.on('onconnected', function (data) {
     socket.emit('requestToJoinRoom', {userid: userid});
 });
 
+
 socket.on('onJoinedRoom', function (data) {
     console.log("joining room:", data);
     userid = data.userid;
