@@ -4,7 +4,6 @@
 var gulp = require('gulp');
 var browserify = require('gulp-browserify');
 var watchify = require('watchify');
-var assign = require('lodash.assign');
 
 //// Basic usage
 gulp.task('scripts', function() {
