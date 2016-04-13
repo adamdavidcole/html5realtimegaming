@@ -16,7 +16,7 @@ var clientSidePrediction = false;
 renderer.init();
 inputHandler.init();
 
-var socket = io.connect('http://10.0.1.4:3000');
+var socket = io.connect('http://sheltered-tor-10865.herokuapp.com/');
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;
@@ -1169,7 +1169,8 @@ module.exports={
     "tarball": "https://registry.npmjs.org/p2/-/p2-0.7.1.tgz"
   },
   "directories": {},
-  "_resolved": "https://registry.npmjs.org/p2/-/p2-0.7.1.tgz"
+  "_resolved": "https://registry.npmjs.org/p2/-/p2-0.7.1.tgz",
+  "readme": "ERROR: No README data found!"
 }
 
 },{}],10:[function(require,module,exports){
@@ -14271,6 +14272,7 @@ var createArena = function() {
     var angle = (2*Math.PI) / N;
     var sideLength = getSideDistance(r)+2;
     var sideHeight = pxm(40);
+    var endpointRadius = pxm(50);
     for (var n = 0; n < N; n++) {
         var x = r * Math.cos(angle * n + theta) + x_centre;
         var y = r * Math.sin(angle * n + theta) + y_centre;
@@ -14292,6 +14294,16 @@ var createArena = function() {
         });
         body.addShape(side);
         world.addBody(body);
+
+        //var endpointBody = new p2.Body({
+        //    mass: 0,
+        //    position: [x,y]
+        //});
+        //var endpointCircle = new p2.Circle({
+        //    radius: endpointRadius
+        //});
+        //endpointBody.addShape(endpointCircle);
+        //world.addBody(endpointBody);
         arenaWalls.push(body);
     }
 };

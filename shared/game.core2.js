@@ -165,6 +165,7 @@ var createArena = function() {
     var angle = (2*Math.PI) / N;
     var sideLength = getSideDistance(r)+2;
     var sideHeight = pxm(40);
+    var endpointRadius = pxm(50);
     for (var n = 0; n < N; n++) {
         var x = r * Math.cos(angle * n + theta) + x_centre;
         var y = r * Math.sin(angle * n + theta) + y_centre;
@@ -186,6 +187,16 @@ var createArena = function() {
         });
         body.addShape(side);
         world.addBody(body);
+
+        //var endpointBody = new p2.Body({
+        //    mass: 0,
+        //    position: [x,y]
+        //});
+        //var endpointCircle = new p2.Circle({
+        //    radius: endpointRadius
+        //});
+        //endpointBody.addShape(endpointCircle);
+        //world.addBody(endpointBody);
         arenaWalls.push(body);
     }
 };
