@@ -15,7 +15,7 @@ var clientSidePrediction = false;
 renderer.init();
 inputHandler.init();
 
-var socket = io.connect('http://10.0.1.4:3000');
+var socket = io.connect('http://sheltered-tor-10865.herokuapp.com/');
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;

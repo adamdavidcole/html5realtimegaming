@@ -16,7 +16,7 @@ var clientSidePrediction = false;
 renderer.init();
 inputHandler.init();
 
-var socket = io.connect('http://10.0.1.4:3000');
+var socket = io.connect('http://sheltered-tor-10865.herokuapp.com/');
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;
@@ -1169,7 +1169,8 @@ module.exports={
     "tarball": "https://registry.npmjs.org/p2/-/p2-0.7.1.tgz"
   },
   "directories": {},
-  "_resolved": "https://registry.npmjs.org/p2/-/p2-0.7.1.tgz"
+  "_resolved": "https://registry.npmjs.org/p2/-/p2-0.7.1.tgz",
+  "readme": "ERROR: No README data found!"
 }
 
 },{}],10:[function(require,module,exports){
