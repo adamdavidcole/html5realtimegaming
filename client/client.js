@@ -17,7 +17,7 @@ var pending_inputs = [];
 renderer.init();
 inputHandler.init();
 
-var socket = io.connect('http://sheltered-tor-10865. herokuapp.com/');
+var socket = io.connect('http://sheltered-tor-10865.herokuapp.com/');
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;
