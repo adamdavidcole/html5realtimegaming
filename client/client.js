@@ -57,7 +57,6 @@ socket.on('onserverupdate', function(data) {
     while (j < pending_inputs.length) {
         var input = pending_inputs[j];
         var last_server_input = data.lastProcessedInput[userid];
-        console.log(last_server_input);
         if (input.inputSequenceNumber <= last_server_input) {
             // Already processed. Its effect is already taken into account
             // into the world update we just got, so we can drop it.
