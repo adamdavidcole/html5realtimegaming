@@ -18,7 +18,9 @@ var pending_inputs = [];
 renderer.init();
 inputHandler.init();
 
-var socket = io.connect("http://sheltered-tor-10865.herokuapp.com/");
+var latency = 5000;
+
+var socket = io.connect("http://10.0.1.4:3000");
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;
@@ -63,8 +65,10 @@ socket.on('onserverupdate', function(data) {
             // into the world update we just got, so we can drop it.
             pending_inputs.splice(j, 1);
         } else {
+            console.log(input.inputSequenceNumber, last_server_input);
             console.log("reconcilling");
             // Not processed by the server yet. Re-apply it.
+            console.log(input.inputs)
             game.processInput(input.inputs, userid);
             j++;
         }
@@ -74,7 +78,6 @@ socket.on('onserverupdate', function(data) {
 var beginClientUpdateLoop = function() {
     clientUpdateLoop = setInterval(function() {
         var inputs = inputHandler.getInputs();
-        if (!inputs.length) return;
 
         var now_ts = +new Date();
         last_ts = last_ts || now_ts;
@@ -83,16 +86,23 @@ var beginClientUpdateLoop = function() {
 
         var clientInput = {};
         clientInput.dtSec = dt_sec;
+        if (!inputs.length) return;
+
         clientInput.inputs = inputs;
         clientInput.userid = game.getUserId();
         clientInput.inputSequenceNumber = inputSequenceNumber++;
-        socket.emit('clientInput', {clientInput: clientInput});
+
         if (clientSidePrediction) {
+            console.log("clientsidepredict: ", clientInput.inputs);
             game.processInput(clientInput.inputs, clientInput.userid);
         }
         if (reconciliation) {
             pending_inputs.push(clientInput);
-        }
+        } else pending_inputs = [];
+        setTimeout(function() {
+            socket.emit('clientInput', {clientInput: clientInput});
+            console.log("emitted client input: ", clientInput);
+        }, latency);
     }, 15)
 };
 
@@ -224,9 +234,9 @@ var drawBodies = function() {
 };
 
 var drawBody = function(body, graphics) {
-    graphics.position.x = mpx(body.position[0]);
-    graphics.position.y = mpx(body.position[1]);
-    graphics.rotation = body.angle;
+    graphics.position.x = mpx(body.interpolatedPosition[0]);
+    graphics.position.y = mpx(body.interpolatedPosition[1]);
+    graphics.rotation = body.interpolatedAngle;
 };
 
 var checkForRemovedPlayers = function() {

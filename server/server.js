@@ -14,6 +14,8 @@ var init = function(io) {
     initIO(io);
 };
 
+//var latency = 250;
+var updates_per_sec = 22;
 
 var initIO = function(io) {
     io.on('connection', function (socket) {
@@ -39,6 +41,7 @@ var initIO = function(io) {
         //
         socket.on('clientInput', function(data) {
             lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
+            console.log(data);
             game.processInput(data.clientInput.inputs, data.clientInput.userid);
         });
     });
@@ -60,7 +63,7 @@ var initIO = function(io) {
     var serverUpdateLoop = setInterval(function() {
         var state = game.getGameState();
         io.sockets.emit('onserverupdate', {state: state, lastProcessedInput:lastProcessedInput});
-    }, 45);
+    }, 1000 / updates_per_sec);
 };
 
 module.exports = {

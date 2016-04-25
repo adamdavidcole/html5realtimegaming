@@ -121,9 +121,9 @@ var drawBodies = function() {
 };
 
 var drawBody = function(body, graphics) {
-    graphics.position.x = mpx(body.position[0]);
-    graphics.position.y = mpx(body.position[1]);
-    graphics.rotation = body.angle;
+    graphics.position.x = mpx(body.interpolatedPosition[0]);
+    graphics.position.y = mpx(body.interpolatedPosition[1]);
+    graphics.rotation = body.interpolatedAngle;
 };
 
 var checkForRemovedPlayers = function() {
