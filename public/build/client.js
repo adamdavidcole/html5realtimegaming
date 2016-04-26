@@ -20,7 +20,7 @@ inputHandler.init();
 
 var latency = 0;
 
-var socket = io.connect("http://10.0.1.4:3000");
+var socket = io.connect("http://sheltered-tor-10865.herokuapp.com/");
 socket.on('onconnected', function (data) {
     console.log("connected to server with id: " + data.userid);
     userid = data.userid;
@@ -116,6 +116,9 @@ var endClientUpdateLoop = function() {
     clearInterval(clientUpdateLoop);
 };
 
+var newGame = function() {
+
+};
 },{"./gameRenderer":2,"./inputHandler":3}],2:[function(require,module,exports){
 /**
  * Created by adamcole on 4/3/16.
