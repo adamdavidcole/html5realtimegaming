@@ -19,8 +19,8 @@ var pxm = function (v) {
 var worldWidth = 900;
 var worldHeight = 900;
 
-var moveVelocity = 12;
-var rotateVelocity = 11;
+var moveVelocity = 200;
+var rotateVelocity = 215;
 
 var lastProcessedInput = 0;
 var arenaSides = 10;
@@ -52,16 +52,38 @@ var init = function(_userid) {
     createPuck();
     createArena();
     world.on("beginContact", function(data) {
+        //if (data.bodyA.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyA);
+        //if (data.bodyB.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyB);
+
         if (data.shapeA.type === p2.Shape.CIRCLE && data.shapeB.type === p2.Shape.CIRCLE) {
             if (data.bodyA.bodyType !== bodyTypes.PUCK &&
                 data.bodyB.bodyType !== bodyTypes.PUCK) return;
             var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
             if (nonPuckBody.bodyType === bodyTypes.PLAYER) removePlayer(nonPuckBody);
         }
+
     });
+    //
+    //world.on("endContact", function(data) {
+    //    if (data.bodyA.bodyType === bodyTypes.PLAYER) {
+    //        data.bodyA.velocity = [0,0];
+    //        data.bodyA.angularVelocity = 0;
+    //    }
+    //    if (data.bodyB.bodyType === bodyTypes.PLAYER) {
+    //        data.bodyB.velocity = [0,0];
+    //        data.bodyB.angularVelocity = 0;
+    //    }
+    //});
+
     world.on("postStep", applyFriction);
     world.defaultContactMaterial.friction = 50;
     world.defaultContactMaterial.restitution = .5;
+};
+//
+var setVelocity = function(body) {
+    body.velocity[0] = (body.position[0] - body.previousPosition[0]) / body.dtSec;
+    body.velocity[1] = (body.position[1] - body.previousPosition[1]) / body.dtSec;
+    body.angularVelocity = (body.angle - body.previousAngle) / body.dtSec;
 };
 
 var createBounds = function() {
@@ -117,8 +139,8 @@ var createPlayer = function(_userid, x, y) {
         collisionMask: PLAYER_BOX_GROUP | ARENA_GROUP | PUCK_GROUP | PLAYER_CIRCLE_GROUP
     });
     var boxShape = new p2.Box({
-        width: pxm(165),
-        height: pxm(15),
+        width: pxm(180),
+        height: pxm(18.5),
         collisionGroup: PLAYER_BOX_GROUP,
         collisionMask: PUCK_GROUP
     });
@@ -226,61 +248,108 @@ var getPlayer = function(userid) {
     return;
 };
 
-var processInput = function(inputs, userid) {
+var moveRightTimeout, moveLeftTimeout, moveUpTimeout, moveDownTimeout;
+
+var processInput = function(inputs, userid, dtSec) {
     var player = getPlayer(userid);
     if (!player) return;
-    var damp = 1;
+    player.dtSec = dtSec;
     inputs.forEach(function(input) {
         switch(input) {
             case inputTypes.MOVE_RIGHT:
-                player.velocity[0] = moveVelocity;
+                player.previousPosition[0] = player.position[0];
+                player.position[0] = player.position[0] + (pxm(moveVelocity) * dtSec);
+                    //player.velocity[0] = pxm(moveVelocity);
+
+                //clearTimeout(moveRightTimeout);
+                //moveRightTimeout = setTimeout(function() {
+                //    player.velocity[0] = 0;
+                //}, dtSec*1000);
+
                 applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_LEFT:
-                player.velocity[0] = moveVelocity * -1;
+                player.previousPosition[0] = player.position[0];
+                player.position[0] = player.position[0] - (pxm(moveVelocity) * dtSec);
+                //player.velocity[0] = (player.position[0] - player.previousPosition[0]) / dtSec;
+
+                //player.velocity[0] =  -1 * pxm(moveVelocity);
+
+                //clearTimeout(moveLeftTimeout);
+                //moveLeftTimeout = setTimeout(function() {
+                //    player.velocity[0] = 0;
+                //}, dtSec*1000);
+
                 applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_UP:
-                player.velocity[1] = moveVelocity * -1;
+                player.previousPosition[1] = player.position[1];
+                player.position[1] = player.position[1] - (pxm(moveVelocity) * dtSec);
+                //player.velocity[1] = (player.position[1] - player.previousPosition[1]) / dtSec;
+
+                //player.velocity[1] = -1 * pxm(moveVelocity);
+
+                //clearTimeout(moveUpTimeout);
+                //player.velocity[1] = -1 * pxm(moveVelocity);
+                //moveUpTimeout = setTimeout(function() {
+                //    player.velocity[1] = 0;
+                //}, dtSec*1000);
+
                 applyFrictionVertical = false;
                 break;
             case inputTypes.MOVE_DOWN:
-                player.velocity[1] = moveVelocity;
+                player.previousPosition[1] = player.position[1];
+                player.position[1] = player.position[1] + (pxm(moveVelocity) * dtSec);
+                //player.velocity[1] = (player.position[1] - player.previousPosition[1]) / dtSec;
+                //player.velocity[1] = pxm(moveVelocity);
+
+                //clearTimeout(moveDownTimeout);
+                //player.velocity[1] = pxm(moveVelocity);
+                //moveDownTimeout = setTimeout(function() {
+                //    player.velocity[1] = 0;
+                //}, dtSec*1000);
+
                 applyFrictionVertical = false;
                 break;
             case inputTypes.ROTATE_LEFT:
-                player.angularVelocity = rotateVelocity * -1;
+                player.previousAngle = player.angle;
+                player.angle =  player.angle + (pxm(rotateVelocity) * dtSec);
+                //player.angularVelocity = pxm(1);
                 break;
             case inputTypes.ROTATE_RIGHT:
-                player.angularVelocity = rotateVelocity;
+                player.previousAngle = player.angle;
+                player.angle = player.angle - (pxm(rotateVelocity) * dtSec);
+                //player.angularVelocity = pxm(1) * -1;
                 break;
-            case inputTypes.STOP_RIGHT:
-                if (player.velocity[0] > 0) player.velocity[0] = moveVelocity * damp;
-                applyFrictionHorizontal = true;
-                break;
-            case inputTypes.STOP_LEFT:
-                if (player.velocity[0] < 0) player.velocity[0] = moveVelocity * -1 * damp;
-                applyFrictionHorizontal = true;
-                break;
-            case inputTypes.STOP_UP:
-                if (player.velocity[1] < 0) player.velocity[1] = moveVelocity * -1 * damp;
-                applyFrictionVertical = true;
-                break;
-            case inputTypes.STOP_DOWN:
-                if (player.velocity[1] > 0) player.velocity[1] = moveVelocity * damp;
-                applyFrictionVertical = true;
-                break;
-            case inputTypes.STOP_ROTATE_RIGHT:
-                if (player.angularVelocity > 0) player.angularVelocity = 0;
-                break;
-            case inputTypes.STOP_ROTATE_LEFT:
-                if (player.angularVelocity < 0) player.angularVelocity = 0;
-                break;
-            default :
-                player.velocity = [0,0];
-                player.angularVelocity = 0;
+            //case inputTypes.STOP_RIGHT:
+            //    console.log("STOPRIGHT?");
+            //    if (player.velocity[0] > 0) player.velocity[0] = 0;
+            //    applyFrictionHorizontal = true;
+            //    break;
+            //case inputTypes.STOP_LEFT:
+            //    if (player.velocity[0] < 0) player.velocity[0] = 0;
+            //    applyFrictionHorizontal = true;
+            //    break;
+            //case inputTypes.STOP_UP:
+            //    if (player.velocity[1] < 0) player.velocity[1] = moveVelocity * -1 * damp;
+            //    applyFrictionVertical = true;
+            //    break;
+            //case inputTypes.STOP_DOWN:
+            //    if (player.velocity[1] > 0) player.velocity[1] = moveVelocity * damp;
+            //    applyFrictionVertical = true;
+            //    break;
+            //case inputTypes.STOP_ROTATE_RIGHT:
+            //    if (player.angularVelocity > 0) player.angularVelocity = 0;
+            //    break;
+            //case inputTypes.STOP_ROTATE_LEFT:
+            //    if (player.angularVelocity < 0) player.angularVelocity = 0;
+            //    break;
+            //default :
+            //    player.velocity = [0,0];
+            //    player.angularVelocity = 0;
         }
     });
+    //console.log(player.position);
 };
 
 var applyFriction = function() {
@@ -294,7 +363,6 @@ var applyFriction = function() {
 var serializeBody = function(body) {
     sBody = {};
     sBody.angle = body.angle;
-    sBody.interpolatedAngle = body.interpolatedAngle;
     sBody.angularDamping = body.angularDamping;
     sBody.angularForce = body.angularForce;
     sBody.angularVelocity = body.angularVelocity;
@@ -304,8 +372,7 @@ var serializeBody = function(body) {
     sBody.force = [body.force[0], body.force[1]];
     sBody.position = [body.position[0], body.position[1]];
     sBody.velocity = [body.velocity[0], body.velocity[1]];
-    sBody.interpolatedPosition = [body.interpolatedPosition[0], body.interpolatedPosition[1]];
-    sBody.vlambda = [body.vlambda[0], body.vlambda[1]]
+    sBody.vlambda = [body.vlambda[0], body.vlambda[1]];
     sBody.wlambda = body.wlambda;
     sBody.userid = body.userid;
     sBody.bodyType = body.bodyType;
@@ -335,7 +402,6 @@ var applyState = function(state) {
 
 var applyStateToBody = function(sBody, body) {
     body.angle = sBody.angle;
-    //body.interpolatedAngle = sBody.interpolatedAngle;
     body.angularDamping = sBody.angularDamping;
     body.angularForce = sBody.angularForce;
     body.angularVelocity = sBody.angularVelocity;
@@ -344,7 +410,6 @@ var applyStateToBody = function(sBody, body) {
     body.invInertia = sBody.invInertia;
     body.force = [sBody.force[0], sBody.force[1]];
     body.position = [sBody.position[0], sBody.position[1]];
-    //body.interpolatedPosition = [sBody.interpolatedPosition[0], body.interpolatedPosition[1]];
     body.velocity = [sBody.velocity[0], sBody.velocity[1]];
     body.vlambda = [sBody.vlambda[0], sBody.vlambda[1]]
     body.wlambda = sBody.wlambda;

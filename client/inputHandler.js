@@ -6,6 +6,8 @@ var inputTypes = require('../shared/constants').inputTypes;
 
 var unprocessedInputs = [];
 
+var newInputs = [];
+
 var keyboard = function(keyCode) {
     var key = {};
     key.code = keyCode;
@@ -43,6 +45,12 @@ var keyboard = function(keyCode) {
     return key;
 };
 
+var rightPressed = false,
+    leftPressed = false,
+    downPressed = false,
+    upPressed = false,
+    rotateRightPressed = false,
+    rotateLeftPressed = false;
 
 var init = function() {
     //Capture the keyboard arrow keys
@@ -57,50 +65,66 @@ var init = function() {
     //var postVelocity = 0;
     var rightInterval;
     right.press = function() {
-        unprocessedInputs.push(inputTypes.MOVE_RIGHT);
+        rightPressed = true;
     };
     right.release = function() {
-        unprocessedInputs.push(inputTypes.STOP_RIGHT);
+        newInputs.push(inputTypes.STOP_RIGHT);
+        rightPressed = false;
     };
     left.press = function() {
-        unprocessedInputs.push(inputTypes.MOVE_LEFT);
+        leftPressed = true;
     };
     left.release = function() {
-        unprocessedInputs.push(inputTypes.STOP_LEFT);
+        newInputs.push(inputTypes.STOP_LEFT);
+        leftPressed = false;
     };
 
     up.press = function() {
-        unprocessedInputs.push(inputTypes.MOVE_UP);
+        upPressed = true;
     };
     up.release = function() {
-        unprocessedInputs.push(inputTypes.STOP_UP);
+        newInputs.push(inputTypes.STOP_UP);
+        upPressed = false;
     };
     down.press = function() {
-        unprocessedInputs.push(inputTypes.MOVE_DOWN);
+        downPressed = true;
     };
     down.release = function() {
-        unprocessedInputs.push(inputTypes.STOP_DOWN);
+        newInputs.push(inputTypes.STOP_DOWN);
+        downPressed = false;
     };
 
     //var angularMovement = 7.5;
     //var postAngularMovement = 0;
     a.press = function() {
-        unprocessedInputs.push(inputTypes.ROTATE_LEFT);
+        rotateRightPressed = true;
     };
     a.release = function() {
-        unprocessedInputs.push(inputTypes.STOP_ROTATE_LEFT);
+        newInputs.push(inputTypes.STOP_ROTATE_LEFT);
+        rotateRightPressed = false;
     };
     d.press = function() {
-        unprocessedInputs.push(inputTypes.ROTATE_RIGHT);
+        rotateLeftPressed = true;
     };
     d.release = function() {
-        unprocessedInputs.push(inputTypes.STOP_ROTATE_RIGHT);
+        newInputs.push(inputTypes.STOP_ROTATE_RIGHT);
+        rotateLeftPressed = false;
     };
 };
 
 var getInputs = function() {
-    var inputCopy = unprocessedInputs.slice();
-    unprocessedInputs = [];
+    var inputCopy = newInputs.slice();
+    newInputs = [];
+
+    if (rightPressed) inputCopy.push(inputTypes.MOVE_RIGHT);
+    else if (leftPressed) inputCopy.push(inputTypes.MOVE_LEFT);
+
+    if (upPressed) inputCopy.push(inputTypes.MOVE_UP);
+    else if (downPressed) inputCopy.push(inputTypes.MOVE_DOWN);
+
+    if (rotateRightPressed) inputCopy.push(inputTypes.ROTATE_RIGHT);
+    else if (rotateLeftPressed) inputCopy.push(inputTypes.ROTATE_LEFT);
+
     return inputCopy;
 };
 

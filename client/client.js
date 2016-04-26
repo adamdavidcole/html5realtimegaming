@@ -11,13 +11,13 @@ var last_ts;
 var inputSequenceNumber = 0;
 
 var clientSidePrediction = true;
-var reconciliation = true;
+var reconciliation = false;
 var pending_inputs = [];
 
 renderer.init();
 inputHandler.init();
 
-var latency = 5000;
+var latency = 0;
 
 var socket = io.connect("http://10.0.1.4:3000");
 socket.on('onconnected', function (data) {
@@ -64,15 +64,18 @@ socket.on('onserverupdate', function(data) {
             // into the world update we just got, so we can drop it.
             pending_inputs.splice(j, 1);
         } else {
-            console.log(input.inputSequenceNumber, last_server_input);
-            console.log("reconcilling");
+            console.log(input.inputSequenceNumber - last_server_input);
+            //console.log("reconcilling");
             // Not processed by the server yet. Re-apply it.
-            console.log(input.inputs)
-            game.processInput(input.inputs, userid);
+            game.processInput(input.inputs, userid, input.dtSec);
             j++;
         }
     }
 });
+
+
+var fixedTimeStep = 1 / 60;
+var maxSubSteps = 10;
 
 var beginClientUpdateLoop = function() {
     clientUpdateLoop = setInterval(function() {
@@ -85,6 +88,7 @@ var beginClientUpdateLoop = function() {
 
         var clientInput = {};
         clientInput.dtSec = dt_sec;
+        game.getWorld().step(fixedTimeStep, dt_sec, maxSubSteps);
         if (!inputs.length) return;
 
         clientInput.inputs = inputs;
@@ -92,16 +96,18 @@ var beginClientUpdateLoop = function() {
         clientInput.inputSequenceNumber = inputSequenceNumber++;
 
         if (clientSidePrediction) {
-            console.log("clientsidepredict: ", clientInput.inputs);
-            game.processInput(clientInput.inputs, clientInput.userid);
+            //console.log("clientsidepredict: ", clientInput.inputs);
+            console.log(clientInput.dtSec);
+            game.processInput(clientInput.inputs, clientInput.userid, clientInput.dtSec);
         }
         if (reconciliation) {
             pending_inputs.push(clientInput);
         } else pending_inputs = [];
-        setTimeout(function() {
-            socket.emit('clientInput', {clientInput: clientInput});
-            console.log("emitted client input: ", clientInput);
-        }, latency);
+        if (latency) {
+            setTimeout(function () {
+                socket.emit('clientInput', {clientInput: clientInput});
+            }, latency);
+        } else socket.emit('clientInput', {clientInput: clientInput});
     }, 15)
 };
 

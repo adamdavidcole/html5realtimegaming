@@ -163,15 +163,15 @@ var processInput = function (input) {
     if (!player) return;
     input.userInputs.forEach(function(userInput) {
         //player.body.moveLeft(moveVelocity *.15);
-        if (userInput === inputTypes.ROTATE_LEFT) {
-            //player.body.rotateLeft(rotateVelocity * input.dtSec);
-            player.body.rotation = player.body.rotation - rotateVelocity * input.dtSec;
-        } else if (userInput === inputTypes.ROTATE_RIGHT) {
-            //player.body.rotateRight(rotateVelocity * input.dtSec);
-            player.body.rotation = player.body.rotation + rotateVelocity * input.dtSec;
-        } else {
-            player.body.setZeroRotation();
-        }
+        //if (userInput === inputTypes.ROTATE_LEFT) {
+        //    //player.body.rotateLeft(rotateVelocity * input.dtSec);
+        //    player.body.rotation = player.body.rotation - rotateVelocity * input.dtSec;
+        //} else if (userInput === inputTypes.ROTATE_RIGHT) {
+        //    //player.body.rotateRight(rotateVelocity * input.dtSec);
+        //    player.body.rotation = player.body.rotation + rotateVelocity * input.dtSec;
+        //} else {
+        //    player.body.setZeroRotation();
+        //}
 
         if (userInput === inputTypes.MOVE_LEFT)
         {

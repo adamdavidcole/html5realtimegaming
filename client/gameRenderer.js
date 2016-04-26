@@ -121,9 +121,17 @@ var drawBodies = function() {
 };
 
 var drawBody = function(body, graphics) {
-    graphics.position.x = mpx(body.interpolatedPosition[0]);
-    graphics.position.y = mpx(body.interpolatedPosition[1]);
-    graphics.rotation = body.interpolatedAngle;
+    var interpolated = true;
+    if (interpolated) {
+        graphics.position.x = mpx(body.interpolatedPosition[0]);
+        graphics.position.y = mpx(body.interpolatedPosition[1]);
+        graphics.rotation = body.interpolatedPosition;
+    } else {
+        graphics.position.x = mpx(body.position[0]);
+        graphics.position.y = mpx(body.position[1]);
+        graphics.rotation = body.angle;
+    }
+
 };
 
 var checkForRemovedPlayers = function() {
@@ -220,14 +228,7 @@ function animate(t){
     t = t || 0;
     requestAnimationFrame(animate);
 
-    var timeSinceLastCall = 0;
-    var timeMilliseconds = Date.now();
-    if(timeMilliseconds !== undefined && lastTimeMilliseconds !== undefined){
-        timeSinceLastCall = (timeMilliseconds - lastTimeMilliseconds) / 1000;
-    };
-    // Move physics bodies forward in time
-    game.getWorld().step(fixedTimeStep, timeSinceLastCall, maxSubSteps);
-    lastTimeMilliseconds = timeMilliseconds;
+
     checkForRemovedPlayers();
     drawBodies();
     // Render scene

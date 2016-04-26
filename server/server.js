@@ -15,7 +15,7 @@ var init = function(io) {
 };
 
 //var latency = 250;
-var updates_per_sec = 22;
+var updates_per_sec = 30;
 
 var initIO = function(io) {
     io.on('connection', function (socket) {
@@ -41,8 +41,7 @@ var initIO = function(io) {
         //
         socket.on('clientInput', function(data) {
             lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
-            console.log(data);
-            game.processInput(data.clientInput.inputs, data.clientInput.userid);
+            game.processInput(data.clientInput.inputs, data.clientInput.userid, data.clientInput.dtSec);
         });
     });
 
