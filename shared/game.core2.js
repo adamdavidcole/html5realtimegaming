@@ -5,6 +5,7 @@ var p2 = require('p2');
 var world, boxShape, boxBody, planeBody, planeShape;
 var inputTypes = require('./constants').inputTypes;
 var bodyTypes = require('./constants').bodyTypes;
+var playerStatus = require('./constants').playerStatus;
 
 var puck;
 var players = [];
@@ -54,14 +55,14 @@ var init = function(_userid) {
     world.on("beginContact", function(data) {
         //if (data.bodyA.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyA);
         //if (data.bodyB.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyB);
-
         if (data.shapeA.type === p2.Shape.CIRCLE && data.shapeB.type === p2.Shape.CIRCLE) {
             if (data.bodyA.bodyType !== bodyTypes.PUCK &&
                 data.bodyB.bodyType !== bodyTypes.PUCK) return;
             var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
-            if (nonPuckBody.bodyType === bodyTypes.PLAYER) removePlayer(nonPuckBody);
+            if (nonPuckBody.bodyType === bodyTypes.PLAYER) {
+                removePlayer(nonPuckBody);
+            }
         }
-
     });
     //
     //world.on("endContact", function(data) {
@@ -147,6 +148,7 @@ var createPlayer = function(_userid, x, y) {
     playerBody.addShape(circleShape);
     playerBody.addShape(boxShape);
     playerBody.bodyType = bodyTypes.PLAYER;
+    playerBody.playerStatus = playerStatus.ACTIVE;
     playerBody.userid = _userid;
     world.addBody(playerBody);
     players.push(playerBody);
@@ -234,11 +236,13 @@ var removePlayerById = function(playerid) {
 };
 
 var removePlayer = function(player) {
+    console.log("REMOVE PLAYER");
     world.removeBody(player);
-    var index = players.indexOf(player);
-    if (index > -1) {
-        players.splice(index, 1);
-    }
+    //var index = players.indexOf(player);
+    //if (index > -1) {
+    //    players.splice(index, 1);
+    //}
+    player.playerStatus = playerStatus.DEAD;
 };
 
 var getPlayer = function(userid) {
@@ -251,15 +255,16 @@ var getPlayer = function(userid) {
 var moveRightTimeout, moveLeftTimeout, moveUpTimeout, moveDownTimeout;
 
 var processInput = function(inputs, userid, dtSec) {
+    var moveByPosition = false;
     var player = getPlayer(userid);
     if (!player) return;
     player.dtSec = dtSec;
     inputs.forEach(function(input) {
         switch(input) {
             case inputTypes.MOVE_RIGHT:
-                player.previousPosition[0] = player.position[0];
-                player.position[0] = player.position[0] + (pxm(moveVelocity) * dtSec);
-                    //player.velocity[0] = pxm(moveVelocity);
+                //player.previousPosition[0] = player.position[0];
+                if (moveByPosition) player.position[0] = player.position[0] + (pxm(moveVelocity) * dtSec);
+                else player.velocity[0] = pxm(moveVelocity);
 
                 //clearTimeout(moveRightTimeout);
                 //moveRightTimeout = setTimeout(function() {
@@ -269,11 +274,9 @@ var processInput = function(inputs, userid, dtSec) {
                 applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_LEFT:
-                player.previousPosition[0] = player.position[0];
-                player.position[0] = player.position[0] - (pxm(moveVelocity) * dtSec);
-                //player.velocity[0] = (player.position[0] - player.previousPosition[0]) / dtSec;
-
-                //player.velocity[0] =  -1 * pxm(moveVelocity);
+                //player.previousPosition[0] = player.position[0];
+                if (moveByPosition) player.position[0] = player.position[0] - (pxm(moveVelocity) * dtSec);
+                else player.velocity[0] =  -1 * pxm(moveVelocity);
 
                 //clearTimeout(moveLeftTimeout);
                 //moveLeftTimeout = setTimeout(function() {
@@ -283,11 +286,9 @@ var processInput = function(inputs, userid, dtSec) {
                 applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_UP:
-                player.previousPosition[1] = player.position[1];
-                player.position[1] = player.position[1] - (pxm(moveVelocity) * dtSec);
-                //player.velocity[1] = (player.position[1] - player.previousPosition[1]) / dtSec;
-
-                //player.velocity[1] = -1 * pxm(moveVelocity);
+                //player.previousPosition[1] = player.position[1];
+                if (moveByPosition) player.position[1] = player.position[1] - (pxm(moveVelocity) * dtSec);
+                else player.velocity[1] = -1 * pxm(moveVelocity);
 
                 //clearTimeout(moveUpTimeout);
                 //player.velocity[1] = -1 * pxm(moveVelocity);
@@ -298,10 +299,10 @@ var processInput = function(inputs, userid, dtSec) {
                 applyFrictionVertical = false;
                 break;
             case inputTypes.MOVE_DOWN:
-                player.previousPosition[1] = player.position[1];
-                player.position[1] = player.position[1] + (pxm(moveVelocity) * dtSec);
+                //player.previousPosition[1] = player.position[1];
                 //player.velocity[1] = (player.position[1] - player.previousPosition[1]) / dtSec;
-                //player.velocity[1] = pxm(moveVelocity);
+                if (moveByPosition) player.position[1] = player.position[1] + (pxm(moveVelocity) * dtSec);
+                else player.velocity[1] = pxm(moveVelocity);
 
                 //clearTimeout(moveDownTimeout);
                 //player.velocity[1] = pxm(moveVelocity);
@@ -312,14 +313,14 @@ var processInput = function(inputs, userid, dtSec) {
                 applyFrictionVertical = false;
                 break;
             case inputTypes.ROTATE_LEFT:
-                player.previousAngle = player.angle;
-                player.angle =  player.angle + (pxm(rotateVelocity) * dtSec);
-                //player.angularVelocity = pxm(1);
+                //player.previousAngle = player.angle;
+                if (moveByPosition) player.angle =  player.angle + (pxm(rotateVelocity) * dtSec);
+                else player.angularVelocity = pxm(rotateVelocity);
                 break;
             case inputTypes.ROTATE_RIGHT:
-                player.previousAngle = player.angle;
-                player.angle = player.angle - (pxm(rotateVelocity) * dtSec);
-                //player.angularVelocity = pxm(1) * -1;
+                //player.previousAngle = player.angle;
+                if (moveByPosition)player.angle = player.angle - (pxm(rotateVelocity) * dtSec);
+                else player.angularVelocity = pxm(rotateVelocity) * -1;
                 break;
             //case inputTypes.STOP_RIGHT:
             //    console.log("STOPRIGHT?");
@@ -344,9 +345,9 @@ var processInput = function(inputs, userid, dtSec) {
             //case inputTypes.STOP_ROTATE_LEFT:
             //    if (player.angularVelocity < 0) player.angularVelocity = 0;
             //    break;
-            //default :
-            //    player.velocity = [0,0];
-            //    player.angularVelocity = 0;
+            default :
+                player.velocity = [0,0];
+                player.angularVelocity = 0;
         }
     });
     //console.log(player.position);
@@ -376,6 +377,9 @@ var serializeBody = function(body) {
     sBody.wlambda = body.wlambda;
     sBody.userid = body.userid;
     sBody.bodyType = body.bodyType;
+    if (body.bodyType === bodyTypes.PLAYER) {
+        sBody.playerStatus = body.playerStatus;
+    }
     return sBody;
 };
 
@@ -400,6 +404,8 @@ var applyState = function(state) {
     });
 };
 
+//var sleepBodies =
+
 var applyStateToBody = function(sBody, body) {
     body.angle = sBody.angle;
     body.angularDamping = sBody.angularDamping;
@@ -415,6 +421,9 @@ var applyStateToBody = function(sBody, body) {
     body.wlambda = sBody.wlambda;
     body.userid = sBody.userid;
     body.bodyType = sBody.bodyType;
+    if (body.bodyType === bodyTypes.PLAYER) {
+        body.playerStatus = sBody.playerStatus;
+    }
 };
 
 module.exports = {

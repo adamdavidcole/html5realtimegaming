@@ -10,7 +10,7 @@ var clientUpdateLoop;
 var last_ts;
 var inputSequenceNumber = 0;
 
-var clientSidePrediction = true;
+var clientSidePrediction = false;
 var reconciliation = false;
 var pending_inputs = [];
 
@@ -88,7 +88,7 @@ var beginClientUpdateLoop = function() {
 
         var clientInput = {};
         clientInput.dtSec = dt_sec;
-        game.getWorld().step(fixedTimeStep, dt_sec, maxSubSteps);
+       // game.getWorld().step(fixedTimeStep, dt_sec, maxSubSteps);
         if (!inputs.length) return;
 
         clientInput.inputs = inputs;

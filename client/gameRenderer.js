@@ -5,6 +5,7 @@
 var game = require('../shared/game.core2.js');
 var inputHandler = require('./inputHandler');
 var bodyTypes = require('../shared/constants').bodyTypes;
+var playerStatus = require('../shared/constants').playerStatus;
 var inputSequenceNumber = 0;
 var last_ts;
 var mpx = function (v) {
@@ -73,7 +74,6 @@ var createArena = function() {
 
     var endpoints = game.getEndpoints();
     endpoints.forEach(function (body) {
-        console.log(body);
         var graphics =  new PIXI.Graphics();
         var pos_x = mpx(body.position[0]);
         var pos_y = mpx(body.position[1]);
@@ -107,6 +107,12 @@ var createBackground = function() {
 var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
+        if (body.playerStatus && body.playerStatus === playerStatus.DEAD) {
+
+            var graphicsObj = graphicObjs[body.id];
+            if (graphicsObj) graphicsObj.graphics.clear();
+            return;
+        }
         if (body.bodyType === bodyTypes.ARENA || body.bodyType === bodyTypes.ENDPOINT) {
             return;
         } else {
@@ -121,7 +127,7 @@ var drawBodies = function() {
 };
 
 var drawBody = function(body, graphics) {
-    var interpolated = true;
+    var interpolated = false;
     if (interpolated) {
         graphics.position.x = mpx(body.interpolatedPosition[0]);
         graphics.position.y = mpx(body.interpolatedPosition[1]);
@@ -228,8 +234,7 @@ function animate(t){
     t = t || 0;
     requestAnimationFrame(animate);
 
-
-    checkForRemovedPlayers();
+    //checkForRemovedPlayers();
     drawBodies();
     // Render scene
     positionCamera();

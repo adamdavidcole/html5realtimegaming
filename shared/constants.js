@@ -25,3 +25,8 @@ exports.bodyTypes = {
     BOUND: "bound",
     ENDPOINT: "endpoint"
 };
+
+exports.playerStatus = {
+    ACTIVE: "active",
+    DEAD: "dead"
+};
