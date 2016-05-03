@@ -89,7 +89,7 @@ var beginClientUpdateLoop = function() {
 
         var clientInput = {};
         clientInput.dtSec = dt_sec;
-       // game.getWorld().step(fixedTimeStep, dt_sec, maxSubSteps);
+        //game.getWorld().step(fixedTimeStep, dt_sec, maxSubSteps);
         if (!inputs.length) return;
 
         clientInput.inputs = inputs;
@@ -117,7 +117,7 @@ var endClientUpdateLoop = function() {
 };
 
 var newGame = function() {
-
+    socket.emit('newGame', {userid: userid});
 };
 },{"./gameRenderer":2,"./inputHandler":3}],2:[function(require,module,exports){
 /**
@@ -14265,17 +14265,6 @@ var init = function(_userid) {
             }
         }
     });
-    //
-    //world.on("endContact", function(data) {
-    //    if (data.bodyA.bodyType === bodyTypes.PLAYER) {
-    //        data.bodyA.velocity = [0,0];
-    //        data.bodyA.angularVelocity = 0;
-    //    }
-    //    if (data.bodyB.bodyType === bodyTypes.PLAYER) {
-    //        data.bodyB.velocity = [0,0];
-    //        data.bodyB.angularVelocity = 0;
-    //    }
-    //});
 
     world.on("postStep", applyFriction);
     world.defaultContactMaterial.friction = 50;
@@ -14437,7 +14426,6 @@ var removePlayerById = function(playerid) {
 };
 
 var removePlayer = function(player) {
-    console.log("REMOVE PLAYER");
     world.removeBody(player);
     //var index = players.indexOf(player);
     //if (index > -1) {
@@ -14463,63 +14451,30 @@ var processInput = function(inputs, userid, dtSec) {
     inputs.forEach(function(input) {
         switch(input) {
             case inputTypes.MOVE_RIGHT:
-                //player.previousPosition[0] = player.position[0];
                 if (moveByPosition) player.position[0] = player.position[0] + (pxm(moveVelocity) * dtSec);
                 else player.velocity[0] = pxm(moveVelocity);
-
-                //clearTimeout(moveRightTimeout);
-                //moveRightTimeout = setTimeout(function() {
-                //    player.velocity[0] = 0;
-                //}, dtSec*1000);
-
                 applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_LEFT:
-                //player.previousPosition[0] = player.position[0];
                 if (moveByPosition) player.position[0] = player.position[0] - (pxm(moveVelocity) * dtSec);
                 else player.velocity[0] =  -1 * pxm(moveVelocity);
-
-                //clearTimeout(moveLeftTimeout);
-                //moveLeftTimeout = setTimeout(function() {
-                //    player.velocity[0] = 0;
-                //}, dtSec*1000);
-
                 applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_UP:
-                //player.previousPosition[1] = player.position[1];
                 if (moveByPosition) player.position[1] = player.position[1] - (pxm(moveVelocity) * dtSec);
                 else player.velocity[1] = -1 * pxm(moveVelocity);
-
-                //clearTimeout(moveUpTimeout);
-                //player.velocity[1] = -1 * pxm(moveVelocity);
-                //moveUpTimeout = setTimeout(function() {
-                //    player.velocity[1] = 0;
-                //}, dtSec*1000);
-
                 applyFrictionVertical = false;
                 break;
             case inputTypes.MOVE_DOWN:
-                //player.previousPosition[1] = player.position[1];
-                //player.velocity[1] = (player.position[1] - player.previousPosition[1]) / dtSec;
                 if (moveByPosition) player.position[1] = player.position[1] + (pxm(moveVelocity) * dtSec);
                 else player.velocity[1] = pxm(moveVelocity);
-
-                //clearTimeout(moveDownTimeout);
-                //player.velocity[1] = pxm(moveVelocity);
-                //moveDownTimeout = setTimeout(function() {
-                //    player.velocity[1] = 0;
-                //}, dtSec*1000);
-
                 applyFrictionVertical = false;
                 break;
             case inputTypes.ROTATE_LEFT:
-                //player.previousAngle = player.angle;
                 if (moveByPosition) player.angle =  player.angle + (pxm(rotateVelocity) * dtSec);
                 else player.angularVelocity = pxm(rotateVelocity);
                 break;
             case inputTypes.ROTATE_RIGHT:
-                //player.previousAngle = player.angle;
                 if (moveByPosition)player.angle = player.angle - (pxm(rotateVelocity) * dtSec);
                 else player.angularVelocity = pxm(rotateVelocity) * -1;
                 break;

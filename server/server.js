@@ -43,6 +43,10 @@ var initIO = function(io) {
             lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
             game.processInput(data.clientInput.inputs, data.clientInput.userid, data.clientInput.dtSec);
         });
+
+        socket.on('newGame', function(data) {
+
+        });
     });
 
     var fixedTimeStep = 1 / 60;

@@ -88,7 +88,7 @@ var beginClientUpdateLoop = function() {
 
         var clientInput = {};
         clientInput.dtSec = dt_sec;
-       // game.getWorld().step(fixedTimeStep, dt_sec, maxSubSteps);
+        //game.getWorld().step(fixedTimeStep, dt_sec, maxSubSteps);
         if (!inputs.length) return;
 
         clientInput.inputs = inputs;
@@ -116,5 +116,5 @@ var endClientUpdateLoop = function() {
 };
 
 var newGame = function() {
-
+    socket.emit('newGame', {userid: userid});
 };
