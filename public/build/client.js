@@ -5,7 +5,8 @@
 var userid;
 var renderer = require('./gameRenderer');
 var inputHandler = require('./inputHandler');
-var game = renderer.getGame();
+var Game = require('../shared/Game');
+var game// = renderer.getGame();
 
 var clientUpdateLoop;
 var last_ts;
@@ -15,64 +16,104 @@ var clientSidePrediction = false;
 var reconciliation = false;
 var pending_inputs = [];
 
-renderer.init();
-inputHandler.init();
+var room;
+
+var socket = io.connect("http://10.0.1.4:3000");
+
+var init = function() {
+    //renderer.init();
+    //inputHandler.init();
+    attachEventHandlers();
+    initSocket();
+};
+
+var initSocket = function() {
+    socket.on('onconnected', function (data) {
+        console.log("connected to server with id: " + data.userid);
+        userid = data.userid;
+        displayRooms(data.rooms);
+        //socket.emit('requestToJoinRoom', {userid: userid});
+    });
+
+    socket.on('onJoinedRoom', function (data) {
+        console.log(data);
+        game = new Game(data.roomid, data.hostid, userid);
+        game.applyState(data.state);
+        renderer.init(game);
+        hideWelcomeScreen();
+        showGameMenuScreen(data.state);
+        //beginClientUpdateLoop();
+    });
+
+    socket.on('onRoomCreated', function (data){
+        displayRooms(data.rooms);
+    });
+
+    socket.on('onRoomDeleted', function(data) {
+        displayRooms(data.rooms);
+    });
+
+    socket.on('onRoomNoLongerExists', function (data) {
+        alert("Room No Longer Exists");
+        showWelcomeScreen(data.rooms);
+    });
+
+    socket.on('onShowWelcomeScreen', function(data) {
+        showWelcomeScreen(data.rooms);
+    });
+
+    socket.on('onNewPlayer', function (data){
+        console.log("adding new player:", data);
+        game.applyState(data.state);
+        displayPlayers(data.state.players);
+    });
+
+    socket.on('onPlayerExit', function (data) {
+        console.log("removing player from room");
+        game.applyState(data.state);
+        displayPlayers(data.state.players);
+    });
+
+    //socket.on('onPlayerDied', function (data) {
+    //    console.log("player died:", data);
+    //    game.removePlayer(data.userid);
+    //    if (data.userid === userid) {
+    //        game.setGameOver();
+    //    }
+    //});
+
+    socket.on('ondisconnect', function(data) {
+        console.log("player disconnected with id: " + data.userid);
+        if (game) game.removePlayerById(data.userid);
+    });
+
+    socket.on('onserverupdate', function(data) {
+        game.applyState(data.state);
+        var j = 0;
+        while (j < pending_inputs.length) {
+            var input = pending_inputs[j];
+            var last_server_input = data.lastProcessedInput[userid];
+            if (input.inputSequenceNumber <= last_server_input) {
+                // Already processed. Its effect is already taken into account
+                // into the world update we just got, so we can drop it.
+                pending_inputs.splice(j, 1);
+            } else {
+                console.log(input.inputSequenceNumber - last_server_input);
+                //console.log("reconcilling");
+                // Not processed by the server yet. Re-apply it.
+                game.processInput(input.inputs, userid, input.dtSec);
+                j++;
+            }
+        }
+    });
+
+}
+
 
 var latency = 0;
 
-var socket = io.connect("http://sheltered-tor-10865.herokuapp.com/");
-socket.on('onconnected', function (data) {
-    console.log("connected to server with id: " + data.userid);
-    userid = data.userid;
-    game.setUserId(userid);
-    socket.emit('requestToJoinRoom', {userid: userid});
-});
 
-socket.on('onJoinedRoom', function (data) {
-    console.log("joining room:", data);
-    userid = data.userid;
-    game.setUserId(userid);
-    game.applyState(data.state);
-    beginClientUpdateLoop();
-});
 
-socket.on('onNewPlayer', function (data){
-    console.log("adding new player:", data);
-    game.applyState(data.state);
-});
-
-//socket.on('onPlayerDied', function (data) {
-//    console.log("player died:", data);
-//    game.removePlayer(data.userid);
-//    if (data.userid === userid) {
-//        game.setGameOver();
-//    }
-//});
-
-socket.on('ondisconnect', function(data) {
-    console.log("player disconnected with id: " + data.userid);
-    game.removePlayerById(data.userid);
-});
-
-socket.on('onserverupdate', function(data) {
-    game.applyState(data.state);
-    var j = 0;
-    while (j < pending_inputs.length) {
-        var input = pending_inputs[j];
-        var last_server_input = data.lastProcessedInput[userid];
-        if (input.inputSequenceNumber <= last_server_input) {
-            // Already processed. Its effect is already taken into account
-            // into the world update we just got, so we can drop it.
-            pending_inputs.splice(j, 1);
-        } else {
-            console.log(input.inputSequenceNumber - last_server_input);
-            //console.log("reconcilling");
-            // Not processed by the server yet. Re-apply it.
-            game.processInput(input.inputs, userid, input.dtSec);
-            j++;
-        }
-    }
-});
 
 
 var fixedTimeStep = 1 / 60;
@@ -119,13 +160,71 @@ var endClientUpdateLoop = function() {
 var newGame = function() {
     socket.emit('newGame', {userid: userid});
 };
-},{"./gameRenderer":2,"./inputHandler":3}],2:[function(require,module,exports){
+
+var attachEventHandlers = function() {
+    $("#create-game-container").click(function() {
+        console.log("clicked")
+        socket.emit("createRoom", {userid: userid});
+    });
+
+    $('#game-exit-button').click(function() {
+        hideGameMenuScreen();
+        socket.emit('showWelcomeScreen', {userid: userid, roomid: game.getRoomId()});
+    });
+
+    $('#game-list').click(function(e) {
+        var roomid = $(e.target).attr("data-roomid");
+        if (roomid) socket.emit('requestToJoinRoom', {userid: userid, roomid: roomid});
+    });
+};
+
+var displayRooms = function(rooms) {
+    console.log(rooms);
+    $('#game-list').empty();
+    if (rooms.length === 0) $('#game-list').append($('<li>').text('No Games in Session'));
+    rooms.forEach(function(room) {
+        var item =  $('<li>');
+        item.text(room.roomid);
+        item.attr('data-roomid', room.roomid);
+        $('#game-list').append(item);
+    });
+};
+
+var displayPlayers = function(players) {
+    $('#players-in-room ul').empty();
+    players.forEach(function (player) {
+       $('#players-in-room ul').append($('<li>').text(player.userid));
+    });
+};
+
+var showWelcomeScreen = function(rooms) {
+    $('#create-game-container').show();
+    $('#game-list-container').show();
+    displayRooms(rooms);
+};
+
+var hideWelcomeScreen = function() {
+    $('#create-game-container').hide();
+    $('#game-list-container').hide();
+};
+
+var showGameMenuScreen = function(state) {
+    $('#game-menu-container').show();
+    displayPlayers(state.players);
+};
+
+var hideGameMenuScreen = function() {
+    $('#game-menu-container').hide();
+}
+
+init();
+},{"../shared/Game":65,"./gameRenderer":2,"./inputHandler":3}],2:[function(require,module,exports){
 /**
  * Created by adamcole on 4/3/16.
  */
 //var p2Render = require('/Users/adamcole/Documents/Penn2016Spring/CIS497/untitled1/node_modules/p2/build/p2.renderer.js');
-var game = require('../shared/game.core2.js');
-var inputHandler = require('./inputHandler');
+//var gameCreator = require('../shared/game.core2.js');
+var game;
 var bodyTypes = require('../shared/constants').bodyTypes;
 var playerStatus = require('../shared/constants').playerStatus;
 var inputSequenceNumber = 0;
@@ -158,7 +257,7 @@ var newPlayer = function(player) {
     return graphicObjs[player.id];
 };
 
-var player = game.getPlayers()[0];
+//var player = game.getPlayers()[0];
 
 var createPuck = function() {
     var puckGraphics = new PIXI.Graphics();
@@ -283,9 +382,8 @@ var checkForRemovedPlayers = function() {
     }
 };
 
-var init = function () {
-    game.init();
-    inputHandler.init();
+var init = function (_game) {
+    game = _game;
     // Pixi.js zoom level
     zoom = 1.25;
 
@@ -302,7 +400,7 @@ var init = function () {
 
     // Add the canvas to the DOM
     document.body.appendChild(renderer.view);
-
+    console.log(renderer.view);
     // Add transform to the container
     container.position.x =  window.innerWidth/2; // center at origin
     container.position.y =  window.innerHeight/2;
@@ -321,7 +419,6 @@ var init = function () {
     addEvent(window, "resize", resize);
 
     animate();
-    handleInput();
 };
 
 var resize = function(e) {
@@ -361,35 +458,13 @@ function animate(t){
     // Render scene
     positionCamera();
     renderer.render(container);
-    //handleInput();
-}
-
-
-
-
-
-var handleInput = function() {
-    var inputs = inputHandler.getInputs();
-    if (!inputs.length) return;
-
-    var now_ts = +new Date();
-    last_ts = last_ts || now_ts;
-    var dt_sec = (now_ts - last_ts) / 1000.0;
-    last_ts = now_ts;
-
-    var clientInput = {};
-    clientInput.dtSec = dt_sec;
-    clientInput.inputs = inputs;
-    clientInput.userid = game.getUserId();
-    clientInput.inputSequenceNumber = inputSequenceNumber++;
-    socket.emit('clientInput', {clientInput: clientInput});
 };
 
 module.exports = {
     getGame: function() {return game;},
     init: init
 };
-},{"../shared/constants":65,"../shared/game.core2.js":66,"./inputHandler":3}],3:[function(require,module,exports){
+},{"../shared/constants":66}],3:[function(require,module,exports){
 /**
  * Created by adamcole on 4/5/16.
  */
@@ -524,7 +599,7 @@ module.exports = {
     init: init,
     getInputs: getInputs
 }
-},{"../shared/constants":65}],4:[function(require,module,exports){
+},{"../shared/constants":66}],4:[function(require,module,exports){
 var Scalar = require('./Scalar');
 
 module.exports = Line;
@@ -14167,56 +14242,12 @@ World.prototype.raycast = function(result, ray){
 
 },{"../../package.json":9,"../collision/AABB":10,"../collision/Broadphase":11,"../collision/Narrowphase":13,"../collision/Ray":14,"../collision/SAPBroadphase":16,"../constraints/Constraint":17,"../constraints/DistanceConstraint":18,"../constraints/GearConstraint":19,"../constraints/LockConstraint":20,"../constraints/PrismaticConstraint":21,"../constraints/RevoluteConstraint":22,"../events/EventEmitter":29,"../material/ContactMaterial":30,"../material/Material":31,"../math/vec2":33,"../objects/Body":34,"../objects/LinearSpring":35,"../objects/RotationalSpring":36,"../shapes/Capsule":41,"../shapes/Circle":42,"../shapes/Convex":43,"../shapes/Line":45,"../shapes/Particle":46,"../shapes/Plane":47,"../shapes/Shape":48,"../solver/GSSolver":49,"../solver/Solver":50,"../utils/OverlapKeeper":55,"../utils/Utils":60,"./IslandManager":62}],65:[function(require,module,exports){
 /**
- * Created by adamcole on 4/3/16.
- */
-
-exports.inputTypes = {
-    MOVE_LEFT: 0,
-    MOVE_RIGHT: 1,
-    MOVE_UP: 2,
-    MOVE_DOWN: 3,
-    ROTATE_RIGHT: 4,
-    ROTATE_LEFT: 5,
-    STOP: 6,
-    STOP_RIGHT: 7,
-    STOP_LEFT: 8,
-    STOP_UP: 9,
-    STOP_DOWN: 10,
-    STOP_ROTATE_LEFT: 11,
-    STOP_ROTATE_RIGHT: 12
-};
-
-exports.bodyTypes = {
-    PLAYER: "player",
-    PUCK: "puck",
-    ARENA: "arena",
-    BOUND: "bound",
-    ENDPOINT: "endpoint"
-};
-
-exports.playerStatus = {
-    ACTIVE: "active",
-    DEAD: "dead"
-};
-},{}],66:[function(require,module,exports){
-/**
- * Created by adamcole on 4/3/16.
+ * Created by adamcole on 5/4/16.
  */
 var p2 = require('p2');
-var world, boxShape, boxBody, planeBody, planeShape;
 var inputTypes = require('./constants').inputTypes;
 var bodyTypes = require('./constants').bodyTypes;
 var playerStatus = require('./constants').playerStatus;
-
-var puck;
-var players = [];
-var thisPlayer;
-var userid;
-var isServer = false;
-
-var pxm = function (v) {
-    return v * 0.05;
-};
 
 var worldWidth = 900;
 var worldHeight = 900;
@@ -14224,36 +14255,36 @@ var worldHeight = 900;
 var moveVelocity = 200;
 var rotateVelocity = 215;
 
-var lastProcessedInput = 0;
-var arenaSides = 10;
-var arenaWalls = [];
-var bounds = [];
-var endpoints = [];
-
-var friction = .9;
-var applyFrictionHorizontal = true;
-var applyFrictionVertical = true;
-
 var PLAYER_CIRCLE_GROUP = Math.pow(2,0),
     PLAYER_BOX_GROUP =  Math.pow(2,1),
     ARENA_GROUP = Math.pow(2,2),
     PUCK_GROUP = Math.pow(2,3);
 
-var init = function(_userid) {
-    var initialArenaSize = 1;
+var Game = function(roomid, hostid, userid) {
+    this.roomid = roomid;
+    this.hostid = hostid;
 
-    if (!_userid) isServer = true;
-    else userid = _userid;
+    if (!userid) this.isServer = true;
+    else {
+        this.isServer = false;
+        this.userid = userid;
+    }
 
-    // Init p2.js
-    world = new p2.World({
+    this.world = new p2.World({
         gravity: [0, 0]
     });
 
-    //createBounds();
-    createPuck();
-    createArena();
-    world.on("beginContact", function(data) {
+    this.createPuck();
+
+    this.arenaSides = 10;
+    this.arenaWalls = [];
+    this.bounds = [];
+    this.endpoints = [];
+    this.createArena();
+
+    this.players = [];
+
+    this.world.on("beginContact", function(data) {
         //if (data.bodyA.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyA);
         //if (data.bodyB.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyB);
         if (data.shapeA.type === p2.Shape.CIRCLE && data.shapeB.type === p2.Shape.CIRCLE) {
@@ -14265,57 +14296,30 @@ var init = function(_userid) {
             }
         }
     });
-
-    world.on("postStep", applyFriction);
-    world.defaultContactMaterial.friction = 50;
-    world.defaultContactMaterial.restitution = .5;
-};
-//
-var setVelocity = function(body) {
-    body.velocity[0] = (body.position[0] - body.previousPosition[0]) / body.dtSec;
-    body.velocity[1] = (body.position[1] - body.previousPosition[1]) / body.dtSec;
-    body.angularVelocity = (body.angle - body.previousAngle) / body.dtSec;
 };
 
-var createBounds = function() {
-    var planeLength = 4000;
-    var planeThickness = 30;
-    // Add a plane
-    var floorBody = new p2.Body({
-        mass: 0,
-        position:[pxm(worldWidth/2),pxm(worldHeight/2 + planeThickness / 2)]
-    });
-    var floorShape = new p2.Box({ width: pxm(planeLength), height: pxm(planeThickness), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    floorBody.addShape(floorShape);
-
-    var rightWallBody = new p2.Body({
-        mass: 0,
-        position:[pxm(worldWidth/2 + planeThickness/2),pxm(worldHeight/2)]
-    });
-    var rightWallShape = new p2.Box({ width: pxm(planeThickness), height: pxm(planeLength), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    rightWallBody.addShape(rightWallShape);
-
-    var leftWallBody = new p2.Body({
-        mass: 0,
-        position:[pxm(-1 * (worldWidth/2) - (planeThickness/2)),pxm(worldHeight/2)]
-    });
-    var leftWallShape = new p2.Box({ width: pxm(planeThickness), height: pxm(planeLength), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    leftWallBody.addShape(leftWallShape);
-
-    var cielingBody = new p2.Body({
-        mass: 0,
-        position:[pxm(worldWidth/2),pxm(-worldHeight/2 - planeThickness/2)]
-    });
-    var cielingShape = new p2.Box({ width: pxm(planeLength), height: pxm(planeThickness), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    cielingBody.addShape(cielingShape);
-
-    world.addBody(floorBody);
-    world.addBody(rightWallBody);
-    world.addBody(leftWallBody);
-    world.addBody(cielingBody);
+var pxm = function (v) {
+    return v * 0.05;
 };
 
-var createPlayer = function(_userid, x, y) {
+Game.prototype.createPuck = function() {
+    this.puck = new p2.Body({
+        mass:1,
+        position:[pxm(50), pxm(100)],
+    });
+    var circleShape = new p2.Circle({
+        radius: pxm(20),
+        collisionGroup: PUCK_GROUP,
+        collisionMask: ARENA_GROUP | PLAYER_BOX_GROUP | PLAYER_CIRCLE_GROUP
+    });
+    this.puck.bodyType = bodyTypes.PUCK;
+    this.puck.addShape(circleShape);
+    this.world.addBody(this.puck);
+    return this.puck;
+};
+
+
+Game.prototype.createPlayer = function(_userid, x, y) {
     if (!x || !y) {
         x = 0;
         y = 0;
@@ -14340,30 +14344,14 @@ var createPlayer = function(_userid, x, y) {
     playerBody.bodyType = bodyTypes.PLAYER;
     playerBody.playerStatus = playerStatus.ACTIVE;
     playerBody.userid = _userid;
-    world.addBody(playerBody);
-    players.push(playerBody);
-    if (userid === _userid) thisPlayer = playerBody;
+    this.world.addBody(playerBody);
+    this.players.push(playerBody);
+    if (this.userid === _userid) this.thisPlayer = playerBody;
     return playerBody;
 };
 
-var createPuck = function() {
-    puck = new p2.Body({
-        mass:1,
-        position:[pxm(50), pxm(100)],
-    });
-    var circleShape = new p2.Circle({
-        radius: pxm(20),
-        collisionGroup: PUCK_GROUP,
-        collisionMask: ARENA_GROUP | PLAYER_BOX_GROUP | PLAYER_CIRCLE_GROUP
-    });
-    puck.bodyType = bodyTypes.PUCK;
-    puck.addShape(circleShape);
-    world.addBody(puck);
-    return puck;
-};
-
-var getSideDistance = function(r) {
-    var angle = (2*Math.PI/arenaSides);
+Game.prototype.getSideDistance = function(r) {
+    var angle = (2*Math.PI/this.arenaSides);
     var x = r * Math.cos(0);
     var y = r * Math.sin(0);
     var xnext = r * Math.cos(angle);
@@ -14371,14 +14359,14 @@ var getSideDistance = function(r) {
     return Math.sqrt((xnext-x)*(xnext-x) + (ynext-y)*(ynext-y));
 };
 
-var createArena = function() {
-    var N = arenaSides;
+Game.prototype.createArena = function() {
+    var N = this.arenaSides;
     var r = pxm(Math.min(worldWidth,worldHeight)/2);
     var x_centre = pxm(0);
     var y_centre = pxm(0);
     var theta = 0;
     var angle = (2*Math.PI) / N;
-    var sideLength = getSideDistance(r)+2;
+    var sideLength = this.getSideDistance(r)+2;
     var sideHeight = pxm(30);
     var endpointRadius = pxm(45);
     for (var n = 0; n < N; n++) {
@@ -14406,27 +14394,29 @@ var createArena = function() {
             mass: 0,
             position: [x, y]
         });
-        var endpointCirlce = new p2.Circle({
+        var endpointCircle = new p2.Circle({
             radius: endpointRadius,
             collisionGroup: ARENA_GROUP,
             collisionMask: PUCK_GROUP | PLAYER_CIRCLE_GROUP
         });
-        endpointBody.addShape(endpointCirlce);
-        world.addBody(body);
-        world.addBody(endpointBody);
-        arenaWalls.push(body);
-        endpoints.push(endpointBody);
+        endpointBody.addShape(endpointCircle);
+        this.world.addBody(body);
+        this.world.addBody(endpointBody);
+        this.arenaWalls.push(body);
+        this.endpoints.push(endpointBody);
     }
 };
 
-var removePlayerById = function(playerid) {
-    for (var i = 0; i < players.length; i++) {
-        if (players[i].userid === playerid) removePlayer(players[i]);
+Game.prototype.removePlayerById = function(playerid) {
+    for (var i = 0; i < this.players.length; i++) {
+        if (this.players[i].userid === playerid) {
+            this.removePlayer(this.players[i]);
+        }
     }
 };
 
-var removePlayer = function(player) {
-    world.removeBody(player);
+Game.prototype.removePlayer = function(player) {
+    this.world.removeBody(player);
     //var index = players.indexOf(player);
     //if (index > -1) {
     //    players.splice(index, 1);
@@ -14434,18 +14424,27 @@ var removePlayer = function(player) {
     player.playerStatus = playerStatus.DEAD;
 };
 
-var getPlayer = function(userid) {
-    for (var i = 0; i < players.length; i++) {
-        if (players[i].userid === userid) return players[i];
+Game.prototype.removePlayerFromRoom = function(playerid) {
+    var player = this.getPlayer(playerid)
+    if (player) {
+        this.world.removeBody(player);
+        var index = this.players.indexOf(player);
+        if (index != -1) {
+            this.players.splice(index, 1);
+        }
+    }
+};
+
+Game.prototype.getPlayer = function(userid) {
+    for (var i = 0; i < this.players.length; i++) {
+        if (this.players[i].userid === userid) return this.players[i];
     }
     return;
 };
 
-var moveRightTimeout, moveLeftTimeout, moveUpTimeout, moveDownTimeout;
-
-var processInput = function(inputs, userid, dtSec) {
+Game.prototype.processInput = function(inputs, userid, dtSec) {
     var moveByPosition = false;
-    var player = getPlayer(userid);
+    var player = this.getPlayer(userid);
     if (!player) return;
     player.dtSec = dtSec;
     inputs.forEach(function(input) {
@@ -14453,22 +14452,22 @@ var processInput = function(inputs, userid, dtSec) {
             case inputTypes.MOVE_RIGHT:
                 if (moveByPosition) player.position[0] = player.position[0] + (pxm(moveVelocity) * dtSec);
                 else player.velocity[0] = pxm(moveVelocity);
-                applyFrictionHorizontal = false;
+                //this.applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_LEFT:
                 if (moveByPosition) player.position[0] = player.position[0] - (pxm(moveVelocity) * dtSec);
                 else player.velocity[0] =  -1 * pxm(moveVelocity);
-                applyFrictionHorizontal = false;
+                //this.applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_UP:
                 if (moveByPosition) player.position[1] = player.position[1] - (pxm(moveVelocity) * dtSec);
                 else player.velocity[1] = -1 * pxm(moveVelocity);
-                applyFrictionVertical = false;
+                //this.applyFrictionVertical = false;
                 break;
             case inputTypes.MOVE_DOWN:
                 if (moveByPosition) player.position[1] = player.position[1] + (pxm(moveVelocity) * dtSec);
                 else player.velocity[1] = pxm(moveVelocity);
-                applyFrictionVertical = false;
+                //this.applyFrictionVertical = false;
                 break;
             case inputTypes.ROTATE_LEFT:
                 if (moveByPosition) player.angle =  player.angle + (pxm(rotateVelocity) * dtSec);
@@ -14509,16 +14508,8 @@ var processInput = function(inputs, userid, dtSec) {
     //console.log(player.position);
 };
 
-var applyFriction = function() {
-    var friction = .9;
-    players.forEach(function(player) {
-        if (applyFrictionHorizontal) player.velocity[0] = player.velocity[0] * friction;
-        if (applyFrictionVertical) player.velocity[1] = player.velocity[1] * friction;
-    });
-};
-
-var serializeBody = function(body) {
-    sBody = {};
+Game.prototype.serializeBody = function(body) {
+    var sBody = {};
     sBody.angle = body.angle;
     sBody.angularDamping = body.angularDamping;
     sBody.angularForce = body.angularForce;
@@ -14539,30 +14530,7 @@ var serializeBody = function(body) {
     return sBody;
 };
 
-var getGameState = function() {
-    var state = {};
-    state.puck = serializeBody(puck);
-    state.players = [];
-    players.forEach(function (player) {
-        var sBody = serializeBody(player);
-        state.players.push(sBody);
-    });
-    return state;
-};
-
-// CLIENT FUNCTION
-var applyState = function(state) {
-    applyStateToBody(state.puck, puck);
-    state.players.forEach(function (playerState) {
-        var playerBody = getPlayer(playerState.userid);
-        if (!playerBody) playerBody = createPlayer(playerState.userid);
-        applyStateToBody(playerState, playerBody);
-    });
-};
-
-//var sleepBodies =
-
-var applyStateToBody = function(sBody, body) {
+Game.prototype.applyStateToBody = function(sBody, body) {
     body.angle = sBody.angle;
     body.angularDamping = sBody.angularDamping;
     body.angularForce = sBody.angularForce;
@@ -14582,24 +14550,87 @@ var applyStateToBody = function(sBody, body) {
     }
 };
 
-module.exports = {
-    getWorld: function() {return world;},
-    getPlayers: function() {return players;},
-    getThisPlayer: function() {return thisPlayer;},
-    getPuck: function() {return puck;},
-    getArenaWalls: function() {return arenaWalls;},
-    getEndpoints: function() {return endpoints;},
-    getLastProcessedInput: function(){return lastProcessedInput},
-    getUserId: function() {return userid;},
-    setUserId: function(_userid) {userid = _userid;},
-    init: init,
-    getGameState: getGameState,
-    createPlayer: createPlayer,
-    removePlayer: removePlayer,
-    removePlayerById: removePlayerById,
-    processInput: processInput,
-    applyState: applyState
+Game.prototype.getGameState = function() {
+    var state = {};
+    state.puck = this.serializeBody(this.puck);
+    state.players = [];
+    var that = this;
+    this.players.forEach(function (player) {
+        var sBody = that.serializeBody(player);
+        state.players.push(sBody);
+    });
+    return state;
 };
 
+// CLIENT FUNCTION
+Game.prototype.applyState = function(state) {
+    console.log(state);
+    this.applyStateToBody(state.puck, this.puck);
+    var that = this;
+    state.players.forEach(function (playerState) {
+        var playerBody = that.getPlayer(playerState.userid);
+        if (!playerBody) playerBody = that.createPlayer(playerState.userid);
+        that.applyStateToBody(playerState, playerBody);
+    });
+};
 
-},{"./constants":65,"p2":39}]},{},[1]);
+// GETTER/SETTERS
+Game.prototype.getWorld = function() {return this.world;};
+Game.prototype.getPlayers = function() {return this.players;};
+Game.prototype.getThisPlayer =  function() {return this.thisPlayer;};
+Game.prototype.getPuck = function() {return this.puck;};
+Game.prototype.getArenaWalls = function() {return this.arenaWalls;};
+Game.prototype.getEndpoints = function() {return this.endpoints;};
+Game.prototype.getLastProcessedInput = function(){return this.lastProcessedInput};
+Game.prototype.getUserId = function() {return this.userid;};
+
+Game.prototype.getRoomId = function() {return this.roomid};
+Game.prototype.getHostId = function() {return this.hostid};
+
+Game.prototype.setUserId = function(_userid) {this.userid = _userid;};
+
+Game.prototype.print = function() {
+    console.log(this.roomid);
+    console.log(this.world);
+};
+
+module.exports = Game;
+},{"./constants":66,"p2":39}],66:[function(require,module,exports){
+/**
+ * Created by adamcole on 4/3/16.
+ */
+
+exports.inputTypes = {
+    MOVE_LEFT: 0,
+    MOVE_RIGHT: 1,
+    MOVE_UP: 2,
+    MOVE_DOWN: 3,
+    ROTATE_RIGHT: 4,
+    ROTATE_LEFT: 5,
+    STOP: 6,
+    STOP_RIGHT: 7,
+    STOP_LEFT: 8,
+    STOP_UP: 9,
+    STOP_DOWN: 10,
+    STOP_ROTATE_LEFT: 11,
+    STOP_ROTATE_RIGHT: 12
+};
+
+exports.bodyTypes = {
+    PLAYER: "player",
+    PUCK: "puck",
+    ARENA: "arena",
+    BOUND: "bound",
+    ENDPOINT: "endpoint"
+};
+
+exports.playerStatus = {
+    ACTIVE: "active",
+    DEAD: "dead"
+};
+
+exports.gameStatus = {
+    PLAY: "active",
+    WAIT: "waiting"
+};
+},{}]},{},[1]);

@@ -1,34 +1,10 @@
 /**
- * Created by adamcole on 4/3/16.
+ * Created by adamcole on 5/4/16.
  */
 var p2 = require('p2');
 var inputTypes = require('./constants').inputTypes;
 var bodyTypes = require('./constants').bodyTypes;
 var playerStatus = require('./constants').playerStatus;
-
-
-var Game = function() {
-    var world, boxShape, boxBody, planeBody, planeShape;
-    var puck;
-    var players = [];
-    var thisPlayer;
-    var userid;
-    var isServer = false;
-
-    var lastProcessedInput = 0;
-    var arenaSides = 10;
-    var arenaWalls = [];
-    var bounds = [];
-    var endpoints = [];
-
-    var friction = .9;
-    var applyFrictionHorizontal = true;
-    var applyFrictionVertical = true;
-};
-
-var pxm = function (v) {
-    return v * 0.05;
-};
 
 var worldWidth = 900;
 var worldHeight = 900;
@@ -41,20 +17,30 @@ var PLAYER_CIRCLE_GROUP = Math.pow(2,0),
     ARENA_GROUP = Math.pow(2,2),
     PUCK_GROUP = Math.pow(2,3);
 
-var init = function(_userid) {
-    var initialArenaSize = 1;
+var Game = function(roomid, hostid, userid) {
+    this.roomid = roomid;
+    this.hostid = hostid;
 
-    if (!_userid) this.isServer = true;
-    else this.userid = _userid;
+    if (!userid) this.isServer = true;
+    else {
+        this.isServer = false;
+        this.userid = userid;
+    }
 
-    // Init p2.js
     this.world = new p2.World({
         gravity: [0, 0]
     });
 
-    //createBounds();
-    createPuck();
-    createArena();
+    this.createPuck();
+
+    this.arenaSides = 10;
+    this.arenaWalls = [];
+    this.bounds = [];
+    this.endpoints = [];
+    this.createArena();
+
+    this.players = [];
+
     this.world.on("beginContact", function(data) {
         //if (data.bodyA.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyA);
         //if (data.bodyB.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyB);
@@ -67,57 +53,30 @@ var init = function(_userid) {
             }
         }
     });
-
-    this.world.on("postStep", applyFriction);
-    this.world.defaultContactMaterial.friction = 50;
-    this.world.defaultContactMaterial.restitution = .5;
-};
-//
-var setVelocity = function(body) {
-    body.velocity[0] = (body.position[0] - body.previousPosition[0]) / body.dtSec;
-    body.velocity[1] = (body.position[1] - body.previousPosition[1]) / body.dtSec;
-    body.angularVelocity = (body.angle - body.previousAngle) / body.dtSec;
 };
 
-var createBounds = function() {
-    var planeLength = 4000;
-    var planeThickness = 30;
-    // Add a plane
-    var floorBody = new p2.Body({
-        mass: 0,
-        position:[pxm(worldWidth/2),pxm(worldHeight/2 + planeThickness / 2)]
-    });
-    var floorShape = new p2.Box({ width: pxm(planeLength), height: pxm(planeThickness), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    floorBody.addShape(floorShape);
-
-    var rightWallBody = new p2.Body({
-        mass: 0,
-        position:[pxm(worldWidth/2 + planeThickness/2),pxm(worldHeight/2)]
-    });
-    var rightWallShape = new p2.Box({ width: pxm(planeThickness), height: pxm(planeLength), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    rightWallBody.addShape(rightWallShape);
-
-    var leftWallBody = new p2.Body({
-        mass: 0,
-        position:[pxm(-1 * (worldWidth/2) - (planeThickness/2)),pxm(worldHeight/2)]
-    });
-    var leftWallShape = new p2.Box({ width: pxm(planeThickness), height: pxm(planeLength), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    leftWallBody.addShape(leftWallShape);
-
-    var cielingBody = new p2.Body({
-        mass: 0,
-        position:[pxm(worldWidth/2),pxm(-worldHeight/2 - planeThickness/2)]
-    });
-    var cielingShape = new p2.Box({ width: pxm(planeLength), height: pxm(planeThickness), collisionGroup: ARENA_GROUP, collisionMask: PLAYER_CIRCLE_GROUP | PUCK_GROUP});
-    cielingBody.addShape(cielingShape);
-
-    this.world.addBody(floorBody);
-    this.world.addBody(rightWallBody);
-    this.world.addBody(leftWallBody);
-    this.world.addBody(cielingBody);
+var pxm = function (v) {
+    return v * 0.05;
 };
 
-var createPlayer = function(_userid, x, y) {
+Game.prototype.createPuck = function() {
+    this.puck = new p2.Body({
+        mass:1,
+        position:[pxm(50), pxm(100)],
+    });
+    var circleShape = new p2.Circle({
+        radius: pxm(20),
+        collisionGroup: PUCK_GROUP,
+        collisionMask: ARENA_GROUP | PLAYER_BOX_GROUP | PLAYER_CIRCLE_GROUP
+    });
+    this.puck.bodyType = bodyTypes.PUCK;
+    this.puck.addShape(circleShape);
+    this.world.addBody(this.puck);
+    return this.puck;
+};
+
+
+Game.prototype.createPlayer = function(_userid, x, y) {
     if (!x || !y) {
         x = 0;
         y = 0;
@@ -144,28 +103,11 @@ var createPlayer = function(_userid, x, y) {
     playerBody.userid = _userid;
     this.world.addBody(playerBody);
     this.players.push(playerBody);
-    if (userid === _userid) this.thisPlayer = playerBody;
+    if (this.userid === _userid) this.thisPlayer = playerBody;
     return playerBody;
 };
 
-var createPuck = function() {
-    console.log(this.world);
-    this.puck = new p2.Body({
-        mass:1,
-        position:[pxm(50), pxm(100)],
-    });
-    var circleShape = new p2.Circle({
-        radius: pxm(20),
-        collisionGroup: PUCK_GROUP,
-        collisionMask: ARENA_GROUP | PLAYER_BOX_GROUP | PLAYER_CIRCLE_GROUP
-    });
-    this.puck.bodyType = bodyTypes.PUCK;
-    this.puck.addShape(circleShape);
-    this.world.addBody(this.puck);
-    return this.puck;
-};
-
-var getSideDistance = function(r) {
+Game.prototype.getSideDistance = function(r) {
     var angle = (2*Math.PI/this.arenaSides);
     var x = r * Math.cos(0);
     var y = r * Math.sin(0);
@@ -174,14 +116,14 @@ var getSideDistance = function(r) {
     return Math.sqrt((xnext-x)*(xnext-x) + (ynext-y)*(ynext-y));
 };
 
-var createArena = function() {
+Game.prototype.createArena = function() {
     var N = this.arenaSides;
     var r = pxm(Math.min(worldWidth,worldHeight)/2);
     var x_centre = pxm(0);
     var y_centre = pxm(0);
     var theta = 0;
     var angle = (2*Math.PI) / N;
-    var sideLength = getSideDistance(r)+2;
+    var sideLength = this.getSideDistance(r)+2;
     var sideHeight = pxm(30);
     var endpointRadius = pxm(45);
     for (var n = 0; n < N; n++) {
@@ -209,12 +151,12 @@ var createArena = function() {
             mass: 0,
             position: [x, y]
         });
-        var endpointCirlce = new p2.Circle({
+        var endpointCircle = new p2.Circle({
             radius: endpointRadius,
             collisionGroup: ARENA_GROUP,
             collisionMask: PUCK_GROUP | PLAYER_CIRCLE_GROUP
         });
-        endpointBody.addShape(endpointCirlce);
+        endpointBody.addShape(endpointCircle);
         this.world.addBody(body);
         this.world.addBody(endpointBody);
         this.arenaWalls.push(body);
@@ -222,13 +164,15 @@ var createArena = function() {
     }
 };
 
-var removePlayerById = function(playerid) {
-    for (var i = 0; i < players.length; i++) {
-        if (this.players[i].userid === playerid) removePlayer(this.players[i]);
+Game.prototype.removePlayerById = function(playerid) {
+    for (var i = 0; i < this.players.length; i++) {
+        if (this.players[i].userid === playerid) {
+            this.removePlayer(this.players[i]);
+        }
     }
 };
 
-var removePlayer = function(player) {
+Game.prototype.removePlayer = function(player) {
     this.world.removeBody(player);
     //var index = players.indexOf(player);
     //if (index > -1) {
@@ -237,18 +181,27 @@ var removePlayer = function(player) {
     player.playerStatus = playerStatus.DEAD;
 };
 
-var getPlayer = function(userid) {
-    for (var i = 0; i < players.length; i++) {
+Game.prototype.removePlayerFromRoom = function(playerid) {
+    var player = this.getPlayer(playerid)
+    if (player) {
+        this.world.removeBody(player);
+        var index = this.players.indexOf(player);
+        if (index != -1) {
+            this.players.splice(index, 1);
+        }
+    }
+};
+
+Game.prototype.getPlayer = function(userid) {
+    for (var i = 0; i < this.players.length; i++) {
         if (this.players[i].userid === userid) return this.players[i];
     }
     return;
 };
 
-var moveRightTimeout, moveLeftTimeout, moveUpTimeout, moveDownTimeout;
-
-var processInput = function(inputs, userid, dtSec) {
+Game.prototype.processInput = function(inputs, userid, dtSec) {
     var moveByPosition = false;
-    var player = getPlayer(userid);
+    var player = this.getPlayer(userid);
     if (!player) return;
     player.dtSec = dtSec;
     inputs.forEach(function(input) {
@@ -256,22 +209,22 @@ var processInput = function(inputs, userid, dtSec) {
             case inputTypes.MOVE_RIGHT:
                 if (moveByPosition) player.position[0] = player.position[0] + (pxm(moveVelocity) * dtSec);
                 else player.velocity[0] = pxm(moveVelocity);
-                this.applyFrictionHorizontal = false;
+                //this.applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_LEFT:
                 if (moveByPosition) player.position[0] = player.position[0] - (pxm(moveVelocity) * dtSec);
                 else player.velocity[0] =  -1 * pxm(moveVelocity);
-                this.applyFrictionHorizontal = false;
+                //this.applyFrictionHorizontal = false;
                 break;
             case inputTypes.MOVE_UP:
                 if (moveByPosition) player.position[1] = player.position[1] - (pxm(moveVelocity) * dtSec);
                 else player.velocity[1] = -1 * pxm(moveVelocity);
-                this.applyFrictionVertical = false;
+                //this.applyFrictionVertical = false;
                 break;
             case inputTypes.MOVE_DOWN:
                 if (moveByPosition) player.position[1] = player.position[1] + (pxm(moveVelocity) * dtSec);
                 else player.velocity[1] = pxm(moveVelocity);
-                this.applyFrictionVertical = false;
+                //this.applyFrictionVertical = false;
                 break;
             case inputTypes.ROTATE_LEFT:
                 if (moveByPosition) player.angle =  player.angle + (pxm(rotateVelocity) * dtSec);
@@ -312,15 +265,7 @@ var processInput = function(inputs, userid, dtSec) {
     //console.log(player.position);
 };
 
-var applyFriction = function() {
-    var friction = .9;
-    this.players.forEach(function(player) {
-        if (this.applyFrictionHorizontal) player.velocity[0] = player.velocity[0] * friction;
-        if (this.applyFrictionVertical) player.velocity[1] = player.velocity[1] * friction;
-    });
-};
-
-var serializeBody = function(body) {
+Game.prototype.serializeBody = function(body) {
     var sBody = {};
     sBody.angle = body.angle;
     sBody.angularDamping = body.angularDamping;
@@ -342,30 +287,7 @@ var serializeBody = function(body) {
     return sBody;
 };
 
-var getGameState = function() {
-    var state = {};
-    state.puck = serializeBody(this.puck);
-    state.players = [];
-    this.players.forEach(function (player) {
-        var sBody = serializeBody(player);
-        state.players.push(sBody);
-    });
-    return state;
-};
-
-// CLIENT FUNCTION
-var applyState = function(state) {
-    applyStateToBody(state.puck, this.puck);
-    state.players.forEach(function (playerState) {
-        var playerBody = getPlayer(playerState.userid);
-        if (!playerBody) playerBody = createPlayer(playerState.userid);
-        applyStateToBody(playerState, playerBody);
-    });
-};
-
-//var sleepBodies =
-
-var applyStateToBody = function(sBody, body) {
+Game.prototype.applyStateToBody = function(sBody, body) {
     body.angle = sBody.angle;
     body.angularDamping = sBody.angularDamping;
     body.angularForce = sBody.angularForce;
@@ -385,19 +307,48 @@ var applyStateToBody = function(sBody, body) {
     }
 };
 
-Game.prototype.getWorld = function() {return world;};
-Game.prototype.getPlayers = function() {return players;};
-Game.prototype.getThisPlayer =  function() {return thisPlayer;};
-Game.prototype.getPuck = function() {return puck;};
-Game.prototype.getArenaWalls = function() {return arenaWalls;};
-Game.prototype.getEndpoints = function() {return endpoints;};
-Game.prototype.getLastProcessedInput = function(){return lastProcessedInput};
-Game.prototype.getUserId = function() {return userid;};
-Game.prototype.setUserId = function(_userid) {userid = _userid;};
-Game.prototype.init = init;
-Game.prototype.getGameState = getGameState;
-Game.prototype.createPlayer = createPlayer;
-Game.prototype.removePlayer = removePlayer;
-Game.prototype.removePlayerById = removePlayerById;
-Game.prototype.processInput = processInput;
-Game.prototype.applyState = applyState;
+Game.prototype.getGameState = function() {
+    var state = {};
+    state.puck = this.serializeBody(this.puck);
+    state.players = [];
+    var that = this;
+    this.players.forEach(function (player) {
+        var sBody = that.serializeBody(player);
+        state.players.push(sBody);
+    });
+    return state;
+};
+
+// CLIENT FUNCTION
+Game.prototype.applyState = function(state) {
+    console.log(state);
+    this.applyStateToBody(state.puck, this.puck);
+    var that = this;
+    state.players.forEach(function (playerState) {
+        var playerBody = that.getPlayer(playerState.userid);
+        if (!playerBody) playerBody = that.createPlayer(playerState.userid);
+        that.applyStateToBody(playerState, playerBody);
+    });
+};
+
+// GETTER/SETTERS
+Game.prototype.getWorld = function() {return this.world;};
+Game.prototype.getPlayers = function() {return this.players;};
+Game.prototype.getThisPlayer =  function() {return this.thisPlayer;};
+Game.prototype.getPuck = function() {return this.puck;};
+Game.prototype.getArenaWalls = function() {return this.arenaWalls;};
+Game.prototype.getEndpoints = function() {return this.endpoints;};
+Game.prototype.getLastProcessedInput = function(){return this.lastProcessedInput};
+Game.prototype.getUserId = function() {return this.userid;};
+
+Game.prototype.getRoomId = function() {return this.roomid};
+Game.prototype.getHostId = function() {return this.hostid};
+
+Game.prototype.setUserId = function(_userid) {this.userid = _userid;};
+
+Game.prototype.print = function() {
+    console.log(this.roomid);
+    console.log(this.world);
+};
+
+module.exports = Game;

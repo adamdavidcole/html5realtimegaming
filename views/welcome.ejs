@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css">
+    <link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/javascripts/pixi.js"></script>
+    <script src="https://code.jquery.com/jquery-2.2.3.js" integrity="sha256-laXWtGydpwqJ8JA+X9x2miwmaiKhn8tVmOVEigRNtP4="   crossorigin="anonymous"></script>
+    <title></title>
+</head>
+<body>
+    <div id="header">
+        <span id="game-name">Welcome to NameOfGame!</span>
+    </div>
+    <div id="content-container">
+        <div id="create-game-container">
+            <div id="create-room-button">
+                Create a Battlefield!
+            </div>
+        </div>
+        <div id="game-list-container">
+            <ul id="game-list"></ul>
+        </div>
+
+        <div id="game-menu-container">
+            <div id="players-in-room">
+                <h3>Players in Room</h3>
+                <ul></ul>
+            </div>
+            <div id="game-buttons-container">
+                <span id="game-start-button" class="menu-button">Start Game</span>
+                <span id="game-exit-button"  class="menu-button">Exit Room</span>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="/build/client.js"></script>
+</html>

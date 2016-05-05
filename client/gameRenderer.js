@@ -2,8 +2,8 @@
  * Created by adamcole on 4/3/16.
  */
 //var p2Render = require('/Users/adamcole/Documents/Penn2016Spring/CIS497/untitled1/node_modules/p2/build/p2.renderer.js');
-var game = require('../shared/game.core2.js');
-var inputHandler = require('./inputHandler');
+//var gameCreator = require('../shared/game.core2.js');
+var game;
 var bodyTypes = require('../shared/constants').bodyTypes;
 var playerStatus = require('../shared/constants').playerStatus;
 var inputSequenceNumber = 0;
@@ -36,7 +36,7 @@ var newPlayer = function(player) {
     return graphicObjs[player.id];
 };
 
-var player = game.getPlayers()[0];
+//var player = game.getPlayers()[0];
 
 var createPuck = function() {
     var puckGraphics = new PIXI.Graphics();
@@ -161,9 +161,8 @@ var checkForRemovedPlayers = function() {
     }
 };
 
-var init = function () {
-    game.init();
-    inputHandler.init();
+var init = function (_game) {
+    game = _game;
     // Pixi.js zoom level
     zoom = 1.25;
 
@@ -180,7 +179,7 @@ var init = function () {
 
     // Add the canvas to the DOM
     document.body.appendChild(renderer.view);
-
+    console.log(renderer.view);
     // Add transform to the container
     container.position.x =  window.innerWidth/2; // center at origin
     container.position.y =  window.innerHeight/2;
@@ -199,7 +198,6 @@ var init = function () {
     addEvent(window, "resize", resize);
 
     animate();
-    handleInput();
 };
 
 var resize = function(e) {
@@ -239,28 +237,6 @@ function animate(t){
     // Render scene
     positionCamera();
     renderer.render(container);
-    //handleInput();
-}
-
-
-
-
-
-var handleInput = function() {
-    var inputs = inputHandler.getInputs();
-    if (!inputs.length) return;
-
-    var now_ts = +new Date();
-    last_ts = last_ts || now_ts;
-    var dt_sec = (now_ts - last_ts) / 1000.0;
-    last_ts = now_ts;
-
-    var clientInput = {};
-    clientInput.dtSec = dt_sec;
-    clientInput.inputs = inputs;
-    clientInput.userid = game.getUserId();
-    clientInput.inputSequenceNumber = inputSequenceNumber++;
-    socket.emit('clientInput', {clientInput: clientInput});
 };
 
 module.exports = {

@@ -30,3 +30,8 @@ exports.playerStatus = {
     ACTIVE: "active",
     DEAD: "dead"
 };
+
+exports.gameStatus = {
+    PLAY: "active",
+    WAIT: "waiting"
+};

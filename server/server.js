@@ -2,15 +2,21 @@
  * Created by adamcole on 4/5/16.
  */
 var io;
-var game = require('../shared/game.core2');
+//var newGame = require('../shared/game.core2');
+var Game = require('../shared/Game');
 var uuid = require('node-uuid');
+var gameStatus = require('../shared/constants').gameStatus;
+//var TestObj = require('./testObject');
 
 var sockets = {};
 var lastProcessedInput = {};
+var rooms = {};
+var roomCount = 0;
 
-var init = function(io) {
+var init = function(_io) {
     //io = _io;
-    game.init();
+    //game.init();
+    io = _io;
     initIO(io);
 };
 
@@ -22,19 +28,31 @@ var initIO = function(io) {
         socket.userid = uuid();
         console.log("socket connected with id: " + socket.userid);
         sockets[socket.userid] = socket;
-        socket.emit('onconnected', { userid: socket.userid });
+        socket.emit('onconnected', {userid: socket.userid, rooms: getRoomsInfo()});
         socket.on('requestToJoinRoom', function (data) {
             console.log('requesttojoinroom')
-            game.createPlayer(socket.userid);
-            lastProcessedInput[socket.userid] = 0;
-            var state =  game.getGameState();
-            socket.emit("onJoinedRoom", {userid: socket.userid, state:state});
-            socket.broadcast.emit("onNewPlayer", {state: state});
+            var room = rooms[data.roomid];
+            if (!room || !room.game) {
+                socket.emit("onRoomNoLongerExists", {rooms: getRoomsInfo()});
+            } else {
+                room.game.createPlayer(data.userid);
+                //lastProcessedInput[socket.userid] = 0;
+                var state = room.game.getGameState();
+                socket.emit("onJoinedRoom", {roomid: room.roomid, host: room.hostid, state: room.game.getGameState()});
+                room.game.getPlayers().forEach(function (player) {
+                    if (player.userid !== data.userid) {
+                        var playerSocket = sockets[player.userid];
+                        playerSocket.emit("onNewPlayer", {state: state, newPlayer: data.userid});
+                    }
+                });
+            }
         });
 
         socket.on('disconnect', function() {
             console.log("socket disconnected with id: " + socket.userid);
-            game.removePlayerById(socket.userid);
+            //game.removePlayerById(socket.userid);
+            //deleteRoom(socket.userid);
+            deletePlayer(socket.userid);
             delete sockets[socket.userid];
             socket.broadcast.emit("ondisconnect", {userid: socket.userid});
         });
@@ -44,8 +62,19 @@ var initIO = function(io) {
             game.processInput(data.clientInput.inputs, data.clientInput.userid, data.clientInput.dtSec);
         });
 
-        socket.on('newGame', function(data) {
+        socket.on('createRoom', function(data) {
+            console.log("create room");
+            var room = createRoom(data.userid);
+            socket.emit("onJoinedRoom", {roomid: room.roomid, host: room.hostid, state: room.game.getGameState()});
+            io.sockets.emit('onRoomCreated', {rooms: getRoomsInfo()});
+        });
 
+        socket.on('showWelcomeScreen', function(data) {
+            console.log('show welcome screen');
+            var room = rooms[data.roomid];
+            removePlayerFromRoom(room.roomid, data.userid);
+            // HANDLE HOST LEAVING GAME
+            socket.emit('onShowWelcomeScreen', {rooms: getRoomsInfo()});
         });
     });
 
@@ -59,14 +88,83 @@ var initIO = function(io) {
         if(timeMilliseconds !== undefined && lastTimeMilliseconds !== undefined){
             timeSinceLastCall = (timeMilliseconds - lastTimeMilliseconds) / 1000;
         };
-        game.getWorld().step(fixedTimeStep, timeSinceLastCall, maxSubSteps);
+        for (var roomid in rooms) {
+            var room = rooms[roomid];
+            if (room.game) {
+                room.game.getWorld().step(fixedTimeStep, timeSinceLastCall, maxSubSteps);
+            //    console.log(roomid, room.game.getPlayers().length);
+            }
+        }
+
         lastTimeMilliseconds = timeMilliseconds;
     }, 15);
 
     var serverUpdateLoop = setInterval(function() {
-        var state = game.getGameState();
-        io.sockets.emit('onserverupdate', {state: state, lastProcessedInput:lastProcessedInput});
+        //var state = game.getGameState();
+        //io.sockets.emit('onserverupdate', {state: state, lastProcessedInput:lastProcessedInput});
     }, 1000 / updates_per_sec);
+};
+
+var createRoom = function(userid) {
+    var newRoomId = uuid();
+    var game = new Game(newRoomId, userid);
+    game.gameStatus = gameStatus.WAIT;
+    game.createPlayer(userid);
+    var room = {
+        game: game,
+        roomid: newRoomId,
+        hostid: userid
+    };
+    rooms[newRoomId] = room;
+    roomCount++;
+    return room;
+};
+
+var deleteRoom = function(userid) {
+    for (var roomid in rooms) {
+        var room = rooms[roomid];
+        if (room.hostid === userid) {
+            delete rooms[roomid];
+            roomCount--;
+        }
+    }
+};
+
+var deletePlayer = function(userid) {
+    for (var roomid in rooms) {
+        var room = rooms[roomid];
+        if (room.game.getPlayer(userid)) removePlayerFromRoom(room.roomid, userid);
+    }
+};
+
+var removePlayerFromRoom = function(roomid, userid) {
+    var room = rooms[roomid];
+    var player = room.game.getPlayer(userid);
+    if (player) {
+        room.game.removePlayerFromRoom(userid);
+        if (room.game.getPlayers().length === 0) {
+            console.log('deleting room');
+            delete rooms[roomid];
+            roomCount--;
+            io.sockets.emit("onRoomDeleted", {rooms: getRoomsInfo()});
+        }
+        else {
+            console.log("notify players of player exit");
+            room.game.getPlayers().forEach(function(player) {
+                var playerSocket = sockets[player.userid];
+                playerSocket.emit("onPlayerExit", {state: room.game.getGameState()});
+            });
+        }
+    }
+}
+
+var getRoomsInfo = function() {
+    var roomsInfo = [];
+    for (roomid in rooms) {
+        var room = rooms[roomid];
+        roomsInfo.push({roomid: room.roomid, hostid: room.hostid, state: room.game.getGameState()});
+    }
+    return roomsInfo;
 };
 
 module.exports = {
