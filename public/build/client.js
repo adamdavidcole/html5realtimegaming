@@ -6,6 +6,7 @@ var userid;
 var renderer = require('./gameRenderer');
 var inputHandler = require('./inputHandler');
 var Game = require('../shared/Game');
+var playerStatus = require('../shared/constants').playerStatus;
 var game// = renderer.getGame();
 
 var clientUpdateLoop;
@@ -36,7 +37,6 @@ var initSocket = function() {
     });
 
     socket.on('onJoinedRoom', function (data) {
-        console.log(data);
         game = new Game(data.roomid, data.hostid, userid);
         game.applyState(data.state);
         renderer.init(game);
@@ -70,6 +70,7 @@ var initSocket = function() {
 
     socket.on('onPlayerExit', function (data) {
         console.log("removing player from room");
+        updatePlayersReminingField();
         game.applyState(data.state);
         displayPlayers(data.state.players);
     });
@@ -87,8 +88,22 @@ var initSocket = function() {
         if (game) game.removePlayerById(data.userid);
     });
 
-    socket.on('onserverupdate', function(data) {
+    socket.on('onStartGame', function(data) {
         game.applyState(data.state);
+        startGame();
+    });
+
+    socket.on('onserverupdate', function(data) {
+        var changedState = checkForChangedPlayerState(data.state.players);
+        game.applyState(data.state);
+        if (changedState.dead.length !== 0) updatePlayersReminingField();
+        if (changedState.removed.length !== 0) {
+            changedState.removed.forEach(function (removedPlayer) {
+                game.removePlayerFromRoom(removedPlayer.userid);
+                renderer.removePlayer(removedPlayer);
+            });
+            updatePlayersReminingField();
+        };
         var j = 0;
         while (j < pending_inputs.length) {
             var input = pending_inputs[j];
@@ -107,19 +122,15 @@ var initSocket = function() {
         }
     });
 
-}
-
+};
 
 var latency = 0;
-
-
-
-
 
 var fixedTimeStep = 1 / 60;
 var maxSubSteps = 10;
 
 var beginClientUpdateLoop = function() {
+    inputHandler.init();
     clientUpdateLoop = setInterval(function() {
         var inputs = inputHandler.getInputs();
 
@@ -134,7 +145,7 @@ var beginClientUpdateLoop = function() {
         if (!inputs.length) return;
 
         clientInput.inputs = inputs;
-        clientInput.userid = game.getUserId();
+        clientInput.userid = userid;
         clientInput.inputSequenceNumber = inputSequenceNumber++;
 
         if (clientSidePrediction) {
@@ -149,7 +160,7 @@ var beginClientUpdateLoop = function() {
             setTimeout(function () {
                 socket.emit('clientInput', {clientInput: clientInput});
             }, latency);
-        } else socket.emit('clientInput', {clientInput: clientInput});
+        } else socket.emit('clientInput', {userid: userid, roomid: game.getRoomId(), clientInput: clientInput});
     }, 15)
 };
 
@@ -172,6 +183,10 @@ var attachEventHandlers = function() {
         socket.emit('showWelcomeScreen', {userid: userid, roomid: game.getRoomId()});
     });
 
+    $('#game-start-button').click(function() {
+        socket.emit('requestToBeginGame', {userid: userid, roomid: game.getRoomId()});
+    });
+
     $('#game-list').click(function(e) {
         var roomid = $(e.target).attr("data-roomid");
         if (roomid) socket.emit('requestToJoinRoom', {userid: userid, roomid: roomid});
@@ -179,7 +194,6 @@ var attachEventHandlers = function() {
 };
 
 var displayRooms = function(rooms) {
-    console.log(rooms);
     $('#game-list').empty();
     if (rooms.length === 0) $('#game-list').append($('<li>').text('No Games in Session'));
     rooms.forEach(function(room) {
@@ -215,10 +229,54 @@ var showGameMenuScreen = function(state) {
 
 var hideGameMenuScreen = function() {
     $('#game-menu-container').hide();
-}
+};
+
+var showGameScreen = function() {
+    $('canvas').show();
+    showGameHeader();
+};
+
+var showGameHeader = function() {
+    updatePlayersReminingField();
+    $('#players-remaining').show();
+    $('#goto-menu').show();
+};
+
+var hideGameHeader = function() {
+    $('#players-remaining').hide();
+    $('#goto-menu').hide();
+};
+
+var updatePlayersReminingField = function() {
+    $('#players-remaining').text("Players Remaining: " + game.getAlivePlayerCount() + "/" + game.getPlayers().length);
+    if (game.getAlivePlayerCount() === 1) console.log("PLAYER 1 WINS");
+};
+
+var startGame = function() {
+    hideGameMenuScreen();
+    showGameScreen();
+    beginClientUpdateLoop();
+};
 
 init();
-},{"../shared/Game":65,"./gameRenderer":2,"./inputHandler":3}],2:[function(require,module,exports){
+
+var checkForChangedPlayerState = function(updatedPlayers) {
+    var changedState = {
+        removed: [],
+        dead: []
+    };
+    game.getPlayers().forEach(function (player) {
+        var updatedPlayer;
+        for (var i = 0; i < updatedPlayers.length; i++) {
+            if (player.userid === updatedPlayers[i].userid) updatedPlayer = updatedPlayers[i];
+        }
+        if (!updatedPlayer) changedState.removed.push(player);
+        else if (updatedPlayer.playerStatus !== player.playerStatus &&
+            updatedPlayer.playerStatus === playerStatus.DEAD) changedState.dead.push(updatedPlayer);
+    });
+    return changedState;
+};
+},{"../shared/Game":65,"../shared/constants":66,"./gameRenderer":2,"./inputHandler":3}],2:[function(require,module,exports){
 /**
  * Created by adamcole on 4/3/16.
  */
@@ -400,7 +458,6 @@ var init = function (_game) {
 
     // Add the canvas to the DOM
     document.body.appendChild(renderer.view);
-    console.log(renderer.view);
     // Add transform to the container
     container.position.x =  window.innerWidth/2; // center at origin
     container.position.y =  window.innerHeight/2;
@@ -460,9 +517,19 @@ function animate(t){
     renderer.render(container);
 };
 
+var removePlayer = function(player) {
+    var graphicsObj = graphicObjs[player.id];
+    if (graphicsObj) {
+        console.log('clear graphics');
+        graphicsObj.graphics.clear();
+    }
+    delete graphicObjs[player.id];
+};
+
 module.exports = {
     getGame: function() {return game;},
-    init: init
+    init: init,
+    removePlayer: removePlayer
 };
 },{"../shared/constants":66}],3:[function(require,module,exports){
 /**
@@ -14281,9 +14348,11 @@ var Game = function(roomid, hostid, userid) {
     this.bounds = [];
     this.endpoints = [];
     this.createArena();
-
+    this.alivePlayerCount = 0;
     this.players = [];
+    this.deadPlayers =[];
 
+    var that = this;
     this.world.on("beginContact", function(data) {
         //if (data.bodyA.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyA);
         //if (data.bodyB.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyB);
@@ -14292,10 +14361,13 @@ var Game = function(roomid, hostid, userid) {
                 data.bodyB.bodyType !== bodyTypes.PUCK) return;
             var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
             if (nonPuckBody.bodyType === bodyTypes.PLAYER) {
-                removePlayer(nonPuckBody);
+                that.removePlayer(nonPuckBody);
             }
         }
     });
+
+    this.world.defaultContactMaterial.friction = 50;
+    this.world.defaultContactMaterial.restitution = .5;
 };
 
 var pxm = function (v) {
@@ -14342,7 +14414,7 @@ Game.prototype.createPlayer = function(_userid, x, y) {
     playerBody.addShape(circleShape);
     playerBody.addShape(boxShape);
     playerBody.bodyType = bodyTypes.PLAYER;
-    playerBody.playerStatus = playerStatus.ACTIVE;
+    playerBody.playerStatus = playerStatus.IDLE;
     playerBody.userid = _userid;
     this.world.addBody(playerBody);
     this.players.push(playerBody);
@@ -14421,6 +14493,8 @@ Game.prototype.removePlayer = function(player) {
     //if (index > -1) {
     //    players.splice(index, 1);
     //}
+    if (player.playerStatus === playerStatus.ALIVE) this.alivePlayerCount--;
+    this.deadPlayers.push(player.userid);
     player.playerStatus = playerStatus.DEAD;
 };
 
@@ -14428,8 +14502,10 @@ Game.prototype.removePlayerFromRoom = function(playerid) {
     var player = this.getPlayer(playerid)
     if (player) {
         this.world.removeBody(player);
+        if (player.playerStatus === playerStatus.ALIVE) this.alivePlayerCount--;
         var index = this.players.indexOf(player);
         if (index != -1) {
+            console.log('remove player from players array');
             this.players.splice(index, 1);
         }
     }
@@ -14559,12 +14635,15 @@ Game.prototype.getGameState = function() {
         var sBody = that.serializeBody(player);
         state.players.push(sBody);
     });
+    state.alivePlayerCount = this.alivePlayerCount;
+    state.deadPlayers = this.deadPlayers;
+    deadPlayers = [];
     return state;
 };
 
 // CLIENT FUNCTION
 Game.prototype.applyState = function(state) {
-    console.log(state);
+    //console.log(state);
     this.applyStateToBody(state.puck, this.puck);
     var that = this;
     state.players.forEach(function (playerState) {
@@ -14572,6 +14651,22 @@ Game.prototype.applyState = function(state) {
         if (!playerBody) playerBody = that.createPlayer(playerState.userid);
         that.applyStateToBody(playerState, playerBody);
     });
+};
+
+Game.prototype.startGame = function() {
+    var that = this;
+    this.players.forEach(function(player) {
+        that.alivePlayerCount++;
+        player.playerStatus = playerStatus.ALIVE;
+    });
+};
+
+Game.prototype.getAlivePlayerCount = function() {
+    var activePlayerCount = 0;
+    this.players.forEach(function (player) {
+        if (player.playerStatus === playerStatus.ALIVE) activePlayerCount++;
+    });
+    return activePlayerCount;
 };
 
 // GETTER/SETTERS
@@ -14625,7 +14720,8 @@ exports.bodyTypes = {
 };
 
 exports.playerStatus = {
-    ACTIVE: "active",
+    ALIVE: "alive",
+    IDLE: "idle",
     DEAD: "dead"
 };
 

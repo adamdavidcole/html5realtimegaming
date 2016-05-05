@@ -8,6 +8,8 @@ body {
     width: 100%;
     background-color: black;
     margin-bottom: 40px;
+    display: flex;
+    justify-content: space-between;
 }
 
 #game-name {
@@ -15,6 +17,24 @@ body {
     line-height: 60px;
     padding-left: 40px;
     color: white;
+}
+
+#players-remaining {
+    text-align: center;
+    display: none;
+}
+
+#goto-menu {
+    padding-right: 40px;
+    text-align: right;
+    display: none;
+}
+
+.header-item {
+    color: white;
+    height: 100%;
+    line-height: 60px;
+    width: 250px;
 }
 
 #content-container {

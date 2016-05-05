@@ -5,6 +5,7 @@ var userid;
 var renderer = require('./gameRenderer');
 var inputHandler = require('./inputHandler');
 var Game = require('../shared/Game');
+var playerStatus = require('../shared/constants').playerStatus;
 var game// = renderer.getGame();
 
 var clientUpdateLoop;
@@ -35,7 +36,6 @@ var initSocket = function() {
     });
 
     socket.on('onJoinedRoom', function (data) {
-        console.log(data);
         game = new Game(data.roomid, data.hostid, userid);
         game.applyState(data.state);
         renderer.init(game);
@@ -69,6 +69,7 @@ var initSocket = function() {
 
     socket.on('onPlayerExit', function (data) {
         console.log("removing player from room");
+        updatePlayersReminingField();
         game.applyState(data.state);
         displayPlayers(data.state.players);
     });
@@ -86,8 +87,22 @@ var initSocket = function() {
         if (game) game.removePlayerById(data.userid);
     });
 
-    socket.on('onserverupdate', function(data) {
+    socket.on('onStartGame', function(data) {
         game.applyState(data.state);
+        startGame();
+    });
+
+    socket.on('onserverupdate', function(data) {
+        var changedState = checkForChangedPlayerState(data.state.players);
+        game.applyState(data.state);
+        if (changedState.dead.length !== 0) updatePlayersReminingField();
+        if (changedState.removed.length !== 0) {
+            changedState.removed.forEach(function (removedPlayer) {
+                game.removePlayerFromRoom(removedPlayer.userid);
+                renderer.removePlayer(removedPlayer);
+            });
+            updatePlayersReminingField();
+        };
         var j = 0;
         while (j < pending_inputs.length) {
             var input = pending_inputs[j];
@@ -106,19 +121,15 @@ var initSocket = function() {
         }
     });
 
-}
-
+};
 
 var latency = 0;
-
-
-
-
 
 var fixedTimeStep = 1 / 60;
 var maxSubSteps = 10;
 
 var beginClientUpdateLoop = function() {
+    inputHandler.init();
     clientUpdateLoop = setInterval(function() {
         var inputs = inputHandler.getInputs();
 
@@ -133,7 +144,7 @@ var beginClientUpdateLoop = function() {
         if (!inputs.length) return;
 
         clientInput.inputs = inputs;
-        clientInput.userid = game.getUserId();
+        clientInput.userid = userid;
         clientInput.inputSequenceNumber = inputSequenceNumber++;
 
         if (clientSidePrediction) {
@@ -148,7 +159,7 @@ var beginClientUpdateLoop = function() {
             setTimeout(function () {
                 socket.emit('clientInput', {clientInput: clientInput});
             }, latency);
-        } else socket.emit('clientInput', {clientInput: clientInput});
+        } else socket.emit('clientInput', {userid: userid, roomid: game.getRoomId(), clientInput: clientInput});
     }, 15)
 };
 
@@ -171,6 +182,10 @@ var attachEventHandlers = function() {
         socket.emit('showWelcomeScreen', {userid: userid, roomid: game.getRoomId()});
     });
 
+    $('#game-start-button').click(function() {
+        socket.emit('requestToBeginGame', {userid: userid, roomid: game.getRoomId()});
+    });
+
     $('#game-list').click(function(e) {
         var roomid = $(e.target).attr("data-roomid");
         if (roomid) socket.emit('requestToJoinRoom', {userid: userid, roomid: roomid});
@@ -178,7 +193,6 @@ var attachEventHandlers = function() {
 };
 
 var displayRooms = function(rooms) {
-    console.log(rooms);
     $('#game-list').empty();
     if (rooms.length === 0) $('#game-list').append($('<li>').text('No Games in Session'));
     rooms.forEach(function(room) {
@@ -214,6 +228,50 @@ var showGameMenuScreen = function(state) {
 
 var hideGameMenuScreen = function() {
     $('#game-menu-container').hide();
-}
+};
+
+var showGameScreen = function() {
+    $('canvas').show();
+    showGameHeader();
+};
+
+var showGameHeader = function() {
+    updatePlayersReminingField();
+    $('#players-remaining').show();
+    $('#goto-menu').show();
+};
+
+var hideGameHeader = function() {
+    $('#players-remaining').hide();
+    $('#goto-menu').hide();
+};
+
+var updatePlayersReminingField = function() {
+    $('#players-remaining').text("Players Remaining: " + game.getAlivePlayerCount() + "/" + game.getPlayers().length);
+    if (game.getAlivePlayerCount() === 1) console.log("PLAYER 1 WINS");
+};
+
+var startGame = function() {
+    hideGameMenuScreen();
+    showGameScreen();
+    beginClientUpdateLoop();
+};
 
 init();
+
+var checkForChangedPlayerState = function(updatedPlayers) {
+    var changedState = {
+        removed: [],
+        dead: []
+    };
+    game.getPlayers().forEach(function (player) {
+        var updatedPlayer;
+        for (var i = 0; i < updatedPlayers.length; i++) {
+            if (player.userid === updatedPlayers[i].userid) updatedPlayer = updatedPlayers[i];
+        }
+        if (!updatedPlayer) changedState.removed.push(player);
+        else if (updatedPlayer.playerStatus !== player.playerStatus &&
+            updatedPlayer.playerStatus === playerStatus.DEAD) changedState.dead.push(updatedPlayer);
+    });
+    return changedState;
+};

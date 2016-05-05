@@ -6,7 +6,6 @@ var io;
 var Game = require('../shared/Game');
 var uuid = require('node-uuid');
 var gameStatus = require('../shared/constants').gameStatus;
-//var TestObj = require('./testObject');
 
 var sockets = {};
 var lastProcessedInput = {};
@@ -56,10 +55,11 @@ var initIO = function(io) {
             delete sockets[socket.userid];
             socket.broadcast.emit("ondisconnect", {userid: socket.userid});
         });
-        //
+
         socket.on('clientInput', function(data) {
-            lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
-            game.processInput(data.clientInput.inputs, data.clientInput.userid, data.clientInput.dtSec);
+            //lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
+            var room = rooms[data.roomid];
+            room.game.processInput(data.clientInput.inputs, data.clientInput.userid, data.clientInput.dtSec);
         });
 
         socket.on('createRoom', function(data) {
@@ -75,6 +75,16 @@ var initIO = function(io) {
             removePlayerFromRoom(room.roomid, data.userid);
             // HANDLE HOST LEAVING GAME
             socket.emit('onShowWelcomeScreen', {rooms: getRoomsInfo()});
+        });
+
+        socket.on('requestToBeginGame', function(data) {
+            var room = rooms[data.roomid];
+            room.game.gameStatus = gameStatus.PLAY;
+            room.game.startGame();
+            room.game.getPlayers().forEach(function (player) {
+                var playerSocket = sockets[player.userid];
+                playerSocket.emit('onStartGame', {state: room.game.getGameState()})
+            });
         });
     });
 
@@ -100,8 +110,14 @@ var initIO = function(io) {
     }, 15);
 
     var serverUpdateLoop = setInterval(function() {
-        //var state = game.getGameState();
-        //io.sockets.emit('onserverupdate', {state: state, lastProcessedInput:lastProcessedInput});
+        for (var roomid in rooms) {
+            var room = rooms[roomid];
+            var state = room.game.getGameState();
+            room.game.getPlayers().forEach(function (player) {
+                var playerSocket = sockets[player.userid];
+                playerSocket.emit('onserverupdate', {state: state, lastProcessedInput: lastProcessedInput})
+            });
+        }
     }, 1000 / updates_per_sec);
 };
 
@@ -118,16 +134,6 @@ var createRoom = function(userid) {
     rooms[newRoomId] = room;
     roomCount++;
     return room;
-};
-
-var deleteRoom = function(userid) {
-    for (var roomid in rooms) {
-        var room = rooms[roomid];
-        if (room.hostid === userid) {
-            delete rooms[roomid];
-            roomCount--;
-        }
-    }
 };
 
 var deletePlayer = function(userid) {
@@ -156,7 +162,7 @@ var removePlayerFromRoom = function(roomid, userid) {
             });
         }
     }
-}
+};
 
 var getRoomsInfo = function() {
     var roomsInfo = [];

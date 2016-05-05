@@ -27,7 +27,8 @@ exports.bodyTypes = {
 };
 
 exports.playerStatus = {
-    ACTIVE: "active",
+    ALIVE: "alive",
+    IDLE: "idle",
     DEAD: "dead"
 };
 

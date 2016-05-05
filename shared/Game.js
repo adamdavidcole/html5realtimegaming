@@ -38,9 +38,11 @@ var Game = function(roomid, hostid, userid) {
     this.bounds = [];
     this.endpoints = [];
     this.createArena();
-
+    this.alivePlayerCount = 0;
     this.players = [];
+    this.deadPlayers =[];
 
+    var that = this;
     this.world.on("beginContact", function(data) {
         //if (data.bodyA.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyA);
         //if (data.bodyB.bodyType === bodyTypes.PLAYER) setVelocity(data.bodyB);
@@ -49,10 +51,13 @@ var Game = function(roomid, hostid, userid) {
                 data.bodyB.bodyType !== bodyTypes.PUCK) return;
             var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
             if (nonPuckBody.bodyType === bodyTypes.PLAYER) {
-                removePlayer(nonPuckBody);
+                that.removePlayer(nonPuckBody);
             }
         }
     });
+
+    this.world.defaultContactMaterial.friction = 50;
+    this.world.defaultContactMaterial.restitution = .5;
 };
 
 var pxm = function (v) {
@@ -99,7 +104,7 @@ Game.prototype.createPlayer = function(_userid, x, y) {
     playerBody.addShape(circleShape);
     playerBody.addShape(boxShape);
     playerBody.bodyType = bodyTypes.PLAYER;
-    playerBody.playerStatus = playerStatus.ACTIVE;
+    playerBody.playerStatus = playerStatus.IDLE;
     playerBody.userid = _userid;
     this.world.addBody(playerBody);
     this.players.push(playerBody);
@@ -178,6 +183,8 @@ Game.prototype.removePlayer = function(player) {
     //if (index > -1) {
     //    players.splice(index, 1);
     //}
+    if (player.playerStatus === playerStatus.ALIVE) this.alivePlayerCount--;
+    this.deadPlayers.push(player.userid);
     player.playerStatus = playerStatus.DEAD;
 };
 
@@ -185,8 +192,10 @@ Game.prototype.removePlayerFromRoom = function(playerid) {
     var player = this.getPlayer(playerid)
     if (player) {
         this.world.removeBody(player);
+        if (player.playerStatus === playerStatus.ALIVE) this.alivePlayerCount--;
         var index = this.players.indexOf(player);
         if (index != -1) {
+            console.log('remove player from players array');
             this.players.splice(index, 1);
         }
     }
@@ -316,12 +325,15 @@ Game.prototype.getGameState = function() {
         var sBody = that.serializeBody(player);
         state.players.push(sBody);
     });
+    state.alivePlayerCount = this.alivePlayerCount;
+    state.deadPlayers = this.deadPlayers;
+    deadPlayers = [];
     return state;
 };
 
 // CLIENT FUNCTION
 Game.prototype.applyState = function(state) {
-    console.log(state);
+    //console.log(state);
     this.applyStateToBody(state.puck, this.puck);
     var that = this;
     state.players.forEach(function (playerState) {
@@ -329,6 +341,22 @@ Game.prototype.applyState = function(state) {
         if (!playerBody) playerBody = that.createPlayer(playerState.userid);
         that.applyStateToBody(playerState, playerBody);
     });
+};
+
+Game.prototype.startGame = function() {
+    var that = this;
+    this.players.forEach(function(player) {
+        that.alivePlayerCount++;
+        player.playerStatus = playerStatus.ALIVE;
+    });
+};
+
+Game.prototype.getAlivePlayerCount = function() {
+    var activePlayerCount = 0;
+    this.players.forEach(function (player) {
+        if (player.playerStatus === playerStatus.ALIVE) activePlayerCount++;
+    });
+    return activePlayerCount;
 };
 
 // GETTER/SETTERS

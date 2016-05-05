@@ -179,7 +179,6 @@ var init = function (_game) {
 
     // Add the canvas to the DOM
     document.body.appendChild(renderer.view);
-    console.log(renderer.view);
     // Add transform to the container
     container.position.x =  window.innerWidth/2; // center at origin
     container.position.y =  window.innerHeight/2;
@@ -239,7 +238,17 @@ function animate(t){
     renderer.render(container);
 };
 
+var removePlayer = function(player) {
+    var graphicsObj = graphicObjs[player.id];
+    if (graphicsObj) {
+        console.log('clear graphics');
+        graphicsObj.graphics.clear();
+    }
+    delete graphicObjs[player.id];
+};
+
 module.exports = {
     getGame: function() {return game;},
-    init: init
+    init: init,
+    removePlayer: removePlayer
 };
