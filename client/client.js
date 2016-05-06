@@ -74,14 +74,6 @@ var initSocket = function() {
         displayPlayers(data.state.players);
     });
 
-    //socket.on('onPlayerDied', function (data) {
-    //    console.log("player died:", data);
-    //    game.removePlayer(data.userid);
-    //    if (data.userid === userid) {
-    //        game.setGameOver();
-    //    }
-    //});
-
     socket.on('ondisconnect', function(data) {
         console.log("player disconnected with id: " + data.userid);
         if (game) game.removePlayerById(data.userid);
@@ -89,13 +81,34 @@ var initSocket = function() {
 
     socket.on('onStartGame', function(data) {
         game.applyState(data.state);
+        renderer.resetPlayerGraphics(game.getPlayers());
+        renderer.showZoomBoard();
         startGame();
+    });
+
+    socket.on('onGameWon', function(data) {
+        console.log(data.winner + "won the game");
+        endClientUpdateLoop();
+        showGameOver(data.winner);
+        setTimeout(function() {
+            hideGameOver();
+            hideGameScreen();
+            showGameMenuScreen(game.getGameState());
+        }, 5000)
     });
 
     socket.on('onserverupdate', function(data) {
         var changedState = checkForChangedPlayerState(data.state.players);
+
         game.applyState(data.state);
-        if (changedState.dead.length !== 0) updatePlayersReminingField();
+
+        if (changedState.dead.length !== 0) {
+            changedState.dead.forEach(function (deadPlayer) {
+                console.log(deadPlayer);
+                if (deadPlayer.userid === userid) makePlayerDead();
+            });
+            updatePlayersReminingField();
+        }
         if (changedState.removed.length !== 0) {
             changedState.removed.forEach(function (removedPlayer) {
                 game.removePlayerFromRoom(removedPlayer.userid);
@@ -132,7 +145,6 @@ var beginClientUpdateLoop = function() {
     inputHandler.init();
     clientUpdateLoop = setInterval(function() {
         var inputs = inputHandler.getInputs();
-
         var now_ts = +new Date();
         last_ts = last_ts || now_ts;
         var dt_sec = (now_ts - last_ts) / 1000.0;
@@ -146,7 +158,6 @@ var beginClientUpdateLoop = function() {
         clientInput.inputs = inputs;
         clientInput.userid = userid;
         clientInput.inputSequenceNumber = inputSequenceNumber++;
-
         if (clientSidePrediction) {
             //console.log("clientsidepredict: ", clientInput.inputs);
             console.log(clientInput.dtSec);
@@ -189,6 +200,10 @@ var attachEventHandlers = function() {
     $('#game-list').click(function(e) {
         var roomid = $(e.target).attr("data-roomid");
         if (roomid) socket.emit('requestToJoinRoom', {userid: userid, roomid: roomid});
+    });
+
+    $('#player-outcome-x').click(function() {
+       $('#player-outcome-container').hide();
     });
 };
 
@@ -235,16 +250,43 @@ var showGameScreen = function() {
     showGameHeader();
 };
 
+var hideGameScreen = function() {
+  $('canvas').hide();
+    hideGameHeader();
+};
+
 var showGameHeader = function() {
     updatePlayersReminingField();
     $('#players-remaining').show();
     $('#goto-menu').show();
 };
 
+var showPlayerOutcome = function(didWin) {
+    if (game.getAlivePlayerCount() === 1) return; // MAYBE CHANGE THIS!
+    if (didWin) {
+        $('#player-outcome').text("YOU WIN!");
+    } else {
+        $('#player-outcome').text("YOU DIED!");
+    }
+    $('#player-outcome-container').show();
+    setInterval(function() {
+        $('#player-outcome-container').hide();
+    }, 5000)
+};
+
 var hideGameHeader = function() {
     $('#players-remaining').hide();
     $('#goto-menu').hide();
 };
+
+var showGameOver = function(winnerid) {
+    $('#game-over-container').text(winnerid + " WINS!");
+    $('#game-over-container').show();
+}
+
+var hideGameOver = function() {
+    $('#game-over-container').hide();
+}
 
 var updatePlayersReminingField = function() {
     $('#players-remaining').text("Players Remaining: " + game.getAlivePlayerCount() + "/" + game.getPlayers().length);
@@ -259,6 +301,11 @@ var startGame = function() {
 
 init();
 
+var makePlayerDead = function() {
+    showPlayerOutcome(false);
+    renderer.showFullBoard();
+};
+
 var checkForChangedPlayerState = function(updatedPlayers) {
     var changedState = {
         removed: [],
@@ -271,7 +318,10 @@ var checkForChangedPlayerState = function(updatedPlayers) {
         }
         if (!updatedPlayer) changedState.removed.push(player);
         else if (updatedPlayer.playerStatus !== player.playerStatus &&
-            updatedPlayer.playerStatus === playerStatus.DEAD) changedState.dead.push(updatedPlayer);
+            updatedPlayer.playerStatus === playerStatus.DEAD) {
+            console.log("DEAD PLAYER");
+            changedState.dead.push(updatedPlayer);
+        }
     });
     return changedState;
 };

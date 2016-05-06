@@ -75,14 +75,6 @@ var initSocket = function() {
         displayPlayers(data.state.players);
     });
 
-    //socket.on('onPlayerDied', function (data) {
-    //    console.log("player died:", data);
-    //    game.removePlayer(data.userid);
-    //    if (data.userid === userid) {
-    //        game.setGameOver();
-    //    }
-    //});
-
     socket.on('ondisconnect', function(data) {
         console.log("player disconnected with id: " + data.userid);
         if (game) game.removePlayerById(data.userid);
@@ -90,13 +82,34 @@ var initSocket = function() {
 
     socket.on('onStartGame', function(data) {
         game.applyState(data.state);
+        renderer.resetPlayerGraphics(game.getPlayers());
+        renderer.showZoomBoard();
         startGame();
+    });
+
+    socket.on('onGameWon', function(data) {
+        console.log(data.winner + "won the game");
+        endClientUpdateLoop();
+        showGameOver(data.winner);
+        setTimeout(function() {
+            hideGameOver();
+            hideGameScreen();
+            showGameMenuScreen(game.getGameState());
+        }, 5000)
     });
 
     socket.on('onserverupdate', function(data) {
         var changedState = checkForChangedPlayerState(data.state.players);
+
         game.applyState(data.state);
-        if (changedState.dead.length !== 0) updatePlayersReminingField();
+
+        if (changedState.dead.length !== 0) {
+            changedState.dead.forEach(function (deadPlayer) {
+                console.log(deadPlayer);
+                if (deadPlayer.userid === userid) makePlayerDead();
+            });
+            updatePlayersReminingField();
+        }
         if (changedState.removed.length !== 0) {
             changedState.removed.forEach(function (removedPlayer) {
                 game.removePlayerFromRoom(removedPlayer.userid);
@@ -133,7 +146,6 @@ var beginClientUpdateLoop = function() {
     inputHandler.init();
     clientUpdateLoop = setInterval(function() {
         var inputs = inputHandler.getInputs();
-
         var now_ts = +new Date();
         last_ts = last_ts || now_ts;
         var dt_sec = (now_ts - last_ts) / 1000.0;
@@ -147,7 +159,6 @@ var beginClientUpdateLoop = function() {
         clientInput.inputs = inputs;
         clientInput.userid = userid;
         clientInput.inputSequenceNumber = inputSequenceNumber++;
-
         if (clientSidePrediction) {
             //console.log("clientsidepredict: ", clientInput.inputs);
             console.log(clientInput.dtSec);
@@ -190,6 +201,10 @@ var attachEventHandlers = function() {
     $('#game-list').click(function(e) {
         var roomid = $(e.target).attr("data-roomid");
         if (roomid) socket.emit('requestToJoinRoom', {userid: userid, roomid: roomid});
+    });
+
+    $('#player-outcome-x').click(function() {
+       $('#player-outcome-container').hide();
     });
 };
 
@@ -236,16 +251,43 @@ var showGameScreen = function() {
     showGameHeader();
 };
 
+var hideGameScreen = function() {
+  $('canvas').hide();
+    hideGameHeader();
+};
+
 var showGameHeader = function() {
     updatePlayersReminingField();
     $('#players-remaining').show();
     $('#goto-menu').show();
 };
 
+var showPlayerOutcome = function(didWin) {
+    if (game.getAlivePlayerCount() === 1) return; // MAYBE CHANGE THIS!
+    if (didWin) {
+        $('#player-outcome').text("YOU WIN!");
+    } else {
+        $('#player-outcome').text("YOU DIED!");
+    }
+    $('#player-outcome-container').show();
+    setInterval(function() {
+        $('#player-outcome-container').hide();
+    }, 5000)
+};
+
 var hideGameHeader = function() {
     $('#players-remaining').hide();
     $('#goto-menu').hide();
 };
+
+var showGameOver = function(winnerid) {
+    $('#game-over-container').text(winnerid + " WINS!");
+    $('#game-over-container').show();
+}
+
+var hideGameOver = function() {
+    $('#game-over-container').hide();
+}
 
 var updatePlayersReminingField = function() {
     $('#players-remaining').text("Players Remaining: " + game.getAlivePlayerCount() + "/" + game.getPlayers().length);
@@ -260,6 +302,11 @@ var startGame = function() {
 
 init();
 
+var makePlayerDead = function() {
+    showPlayerOutcome(false);
+    renderer.showFullBoard();
+};
+
 var checkForChangedPlayerState = function(updatedPlayers) {
     var changedState = {
         removed: [],
@@ -272,7 +319,10 @@ var checkForChangedPlayerState = function(updatedPlayers) {
         }
         if (!updatedPlayer) changedState.removed.push(player);
         else if (updatedPlayer.playerStatus !== player.playerStatus &&
-            updatedPlayer.playerStatus === playerStatus.DEAD) changedState.dead.push(updatedPlayer);
+            updatedPlayer.playerStatus === playerStatus.DEAD) {
+            console.log("DEAD PLAYER");
+            changedState.dead.push(updatedPlayer);
+        }
     });
     return changedState;
 };
@@ -387,7 +437,6 @@ var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
         if (body.playerStatus && body.playerStatus === playerStatus.DEAD) {
-
             var graphicsObj = graphicObjs[body.id];
             if (graphicsObj) graphicsObj.graphics.clear();
             return;
@@ -440,6 +489,13 @@ var checkForRemovedPlayers = function() {
     }
 };
 
+var resetPlayerGraphics = function(players) {
+    players.forEach(function (player) {
+        removePlayer(player);
+        newPlayer(player);
+    });
+};
+
 var init = function (_game) {
     game = _game;
     // Pixi.js zoom level
@@ -486,7 +542,7 @@ var resize = function(e) {
 
 var positionCamera = function() {
     var player = game.getThisPlayer();
-    if (!player) return;
+    if (!player || player.playerStatus !== playerStatus.ALIVE) return;
     container.position.x = window.innerWidth/2 - mpx(player.position[0]);
     container.position.y = (window.innerHeight/2) - mpx(player.position[1]);
 };
@@ -517,6 +573,23 @@ function animate(t){
     renderer.render(container);
 };
 
+var showFullBoard = function() {
+    console.log('showfull board');
+    zoom = .75;
+    container.position.x =  window.innerWidth/2; // center at origin
+    container.position.y =  window.innerHeight/2;
+    container.scale.x =  zoom;  // zoom in
+    container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
+};
+
+var showZoomBoard = function() {
+    zoom = 1.25;
+    container.position.x =  window.innerWidth/2; // center at origin
+    container.position.y =  window.innerHeight/2;
+    container.scale.x =  zoom;  // zoom in
+    container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
+};
+
 var removePlayer = function(player) {
     var graphicsObj = graphicObjs[player.id];
     if (graphicsObj) {
@@ -529,7 +602,10 @@ var removePlayer = function(player) {
 module.exports = {
     getGame: function() {return game;},
     init: init,
-    removePlayer: removePlayer
+    removePlayer: removePlayer,
+    showFullBoard: showFullBoard,
+    showZoomBoard: showZoomBoard,
+    resetPlayerGraphics: resetPlayerGraphics
 };
 },{"../shared/constants":66}],3:[function(require,module,exports){
 /**
@@ -538,9 +614,8 @@ module.exports = {
 
 var inputTypes = require('../shared/constants').inputTypes;
 
-var unprocessedInputs = [];
-
-var newInputs = [];
+var unprocessedInputs;
+var newInputs;
 
 var keyboard = function(keyCode) {
     var key = {};
@@ -587,6 +662,8 @@ var rightPressed = false,
     rotateLeftPressed = false;
 
 var init = function() {
+    unprocessedInputs = [];
+    newInputs = [];
     //Capture the keyboard arrow keys
     var left = keyboard(37),
         up = keyboard(38),
@@ -14581,7 +14658,7 @@ Game.prototype.processInput = function(inputs, userid, dtSec) {
                 player.angularVelocity = 0;
         }
     });
-    //console.log(player.position);
+    // console.log(player.position);
 };
 
 Game.prototype.serializeBody = function(body) {
@@ -14635,15 +14712,11 @@ Game.prototype.getGameState = function() {
         var sBody = that.serializeBody(player);
         state.players.push(sBody);
     });
-    state.alivePlayerCount = this.alivePlayerCount;
-    state.deadPlayers = this.deadPlayers;
-    deadPlayers = [];
     return state;
 };
 
 // CLIENT FUNCTION
 Game.prototype.applyState = function(state) {
-    //console.log(state);
     this.applyStateToBody(state.puck, this.puck);
     var that = this;
     state.players.forEach(function (playerState) {
@@ -14658,7 +14731,36 @@ Game.prototype.startGame = function() {
     this.players.forEach(function(player) {
         that.alivePlayerCount++;
         player.playerStatus = playerStatus.ALIVE;
+        player.velocity = [0,0];
+        player.angularVelocity = 0;
+        if (!that.isPlayerInWorld(player)) that.world.addBody(player);
     });
+    this.initializePlayerPositions();
+};
+
+Game.prototype.isPlayerInWorld = function(player) {
+    var isPlayerInWorld = false;
+    this.world.bodies.forEach(function (body){
+        if (body.id === player.id) isPlayerInWorld = true;
+    });
+    return isPlayerInWorld;
+};
+
+Game.prototype.initializePlayerPositions = function() {
+    var playerCount = this.players.length;
+    var r = pxm(Math.min(worldWidth,worldHeight)/4);
+    var x_centre = pxm(0);
+    var y_centre = pxm(0);
+    var angle = (2*Math.PI) / playerCount;
+    var theta = 0;
+    for (var i = 0; i < playerCount; i++) {
+        var x = r * Math.cos(angle * i + theta) + x_centre;
+        var y = r * Math.sin(angle * i + theta) + y_centre;
+        this.players[i].position = [x, y];
+        this.players[i].angle = 0;
+    }
+    this.puck.position = [0,0];
+    this.puck.velocity = [0,0];
 };
 
 Game.prototype.getAlivePlayerCount = function() {

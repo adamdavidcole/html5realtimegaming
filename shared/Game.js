@@ -271,7 +271,7 @@ Game.prototype.processInput = function(inputs, userid, dtSec) {
                 player.angularVelocity = 0;
         }
     });
-    //console.log(player.position);
+    // console.log(player.position);
 };
 
 Game.prototype.serializeBody = function(body) {
@@ -325,15 +325,11 @@ Game.prototype.getGameState = function() {
         var sBody = that.serializeBody(player);
         state.players.push(sBody);
     });
-    state.alivePlayerCount = this.alivePlayerCount;
-    state.deadPlayers = this.deadPlayers;
-    deadPlayers = [];
     return state;
 };
 
 // CLIENT FUNCTION
 Game.prototype.applyState = function(state) {
-    //console.log(state);
     this.applyStateToBody(state.puck, this.puck);
     var that = this;
     state.players.forEach(function (playerState) {
@@ -348,7 +344,36 @@ Game.prototype.startGame = function() {
     this.players.forEach(function(player) {
         that.alivePlayerCount++;
         player.playerStatus = playerStatus.ALIVE;
+        player.velocity = [0,0];
+        player.angularVelocity = 0;
+        if (!that.isPlayerInWorld(player)) that.world.addBody(player);
     });
+    this.initializePlayerPositions();
+};
+
+Game.prototype.isPlayerInWorld = function(player) {
+    var isPlayerInWorld = false;
+    this.world.bodies.forEach(function (body){
+        if (body.id === player.id) isPlayerInWorld = true;
+    });
+    return isPlayerInWorld;
+};
+
+Game.prototype.initializePlayerPositions = function() {
+    var playerCount = this.players.length;
+    var r = pxm(Math.min(worldWidth,worldHeight)/4);
+    var x_centre = pxm(0);
+    var y_centre = pxm(0);
+    var angle = (2*Math.PI) / playerCount;
+    var theta = 0;
+    for (var i = 0; i < playerCount; i++) {
+        var x = r * Math.cos(angle * i + theta) + x_centre;
+        var y = r * Math.sin(angle * i + theta) + y_centre;
+        this.players[i].position = [x, y];
+        this.players[i].angle = 0;
+    }
+    this.puck.position = [0,0];
+    this.puck.velocity = [0,0];
 };
 
 Game.prototype.getAlivePlayerCount = function() {

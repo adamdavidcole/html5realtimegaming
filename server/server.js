@@ -6,6 +6,7 @@ var io;
 var Game = require('../shared/Game');
 var uuid = require('node-uuid');
 var gameStatus = require('../shared/constants').gameStatus;
+var playerStatus = require('../shared/constants').playerStatus;
 
 var sockets = {};
 var lastProcessedInput = {};
@@ -79,8 +80,8 @@ var initIO = function(io) {
 
         socket.on('requestToBeginGame', function(data) {
             var room = rooms[data.roomid];
-            room.game.gameStatus = gameStatus.PLAY;
             room.game.startGame();
+            room.game.gameStatus = gameStatus.PLAY;
             room.game.getPlayers().forEach(function (player) {
                 var playerSocket = sockets[player.userid];
                 playerSocket.emit('onStartGame', {state: room.game.getGameState()})
@@ -112,6 +113,10 @@ var initIO = function(io) {
     var serverUpdateLoop = setInterval(function() {
         for (var roomid in rooms) {
             var room = rooms[roomid];
+            if (room.game.getAlivePlayerCount() === 1 && room.game.gameStatus === gameStatus.PLAY) {
+                gameWon(room);
+                room.game.gameStatus = gameStatus.WAIT;
+            }
             var state = room.game.getGameState();
             room.game.getPlayers().forEach(function (player) {
                 var playerSocket = sockets[player.userid];
@@ -162,6 +167,18 @@ var removePlayerFromRoom = function(roomid, userid) {
             });
         }
     }
+};
+
+var gameWon = function(room) {
+    var winner;
+    room.game.getPlayers().forEach(function (player) {
+        if (player.playerStatus === playerStatus.ALIVE) winner = player;
+    });
+    room.game.getPlayers().forEach(function (player) {
+        var playerSocket = sockets[player.userid];
+        playerSocket.emit('onGameWon', {winner: winner.userid})
+        //player.playerStatus = playerStatus.IDLE;
+    });
 };
 
 var getRoomsInfo = function() {

@@ -145,3 +145,51 @@ canvas {
     line-height: 60px;
     text-align: center;
 }
+
+#player-outcome-container {
+    width: 100%;
+    max-width: 400px;
+    height: 200px;
+    background-color: rgba(0,0,0,.3);
+    align-self: center;
+    z-index: 3;
+    border-radius: 5px;
+    display: none;
+    margin-top: 100px;
+}
+
+#player-outcome-x {
+    color: white;
+    margin: 15px;
+}
+
+#player-outcome {
+    text-align: center;
+    font-size: 40px;
+    font-weight: 900;
+    color: white;
+    line-height: 100px;
+    letter-spacing: 1px;
+    word-spacing: 2px;
+}
+
+#game-over-container {
+    display: none;
+    width: 100%;
+    max-width: 800px;
+    height: 200px;
+    background-color: rgba(0,0,0,.5);
+    align-self: center;
+    z-index: 3;
+    border-radius: 5px;
+    /*display: none;*/
+    margin-top: 100px;
+
+    text-align: center;
+    font-size: 40px;
+    font-weight: 900;
+    color: white;
+    line-height: 200px;
+    letter-spacing: 1px;
+    word-spacing: 2px;
+}

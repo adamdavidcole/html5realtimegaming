@@ -4,9 +4,8 @@
 
 var inputTypes = require('../shared/constants').inputTypes;
 
-var unprocessedInputs = [];
-
-var newInputs = [];
+var unprocessedInputs;
+var newInputs;
 
 var keyboard = function(keyCode) {
     var key = {};
@@ -53,6 +52,8 @@ var rightPressed = false,
     rotateLeftPressed = false;
 
 var init = function() {
+    unprocessedInputs = [];
+    newInputs = [];
     //Capture the keyboard arrow keys
     var left = keyboard(37),
         up = keyboard(38),

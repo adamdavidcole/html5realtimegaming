@@ -108,7 +108,6 @@ var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
         if (body.playerStatus && body.playerStatus === playerStatus.DEAD) {
-
             var graphicsObj = graphicObjs[body.id];
             if (graphicsObj) graphicsObj.graphics.clear();
             return;
@@ -161,6 +160,13 @@ var checkForRemovedPlayers = function() {
     }
 };
 
+var resetPlayerGraphics = function(players) {
+    players.forEach(function (player) {
+        removePlayer(player);
+        newPlayer(player);
+    });
+};
+
 var init = function (_game) {
     game = _game;
     // Pixi.js zoom level
@@ -207,7 +213,7 @@ var resize = function(e) {
 
 var positionCamera = function() {
     var player = game.getThisPlayer();
-    if (!player) return;
+    if (!player || player.playerStatus !== playerStatus.ALIVE) return;
     container.position.x = window.innerWidth/2 - mpx(player.position[0]);
     container.position.y = (window.innerHeight/2) - mpx(player.position[1]);
 };
@@ -238,6 +244,23 @@ function animate(t){
     renderer.render(container);
 };
 
+var showFullBoard = function() {
+    console.log('showfull board');
+    zoom = .75;
+    container.position.x =  window.innerWidth/2; // center at origin
+    container.position.y =  window.innerHeight/2;
+    container.scale.x =  zoom;  // zoom in
+    container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
+};
+
+var showZoomBoard = function() {
+    zoom = 1.25;
+    container.position.x =  window.innerWidth/2; // center at origin
+    container.position.y =  window.innerHeight/2;
+    container.scale.x =  zoom;  // zoom in
+    container.scale.y = zoom; // Note: we flip the y axis to make "up" the physics "up"
+};
+
 var removePlayer = function(player) {
     var graphicsObj = graphicObjs[player.id];
     if (graphicsObj) {
@@ -250,5 +273,8 @@ var removePlayer = function(player) {
 module.exports = {
     getGame: function() {return game;},
     init: init,
-    removePlayer: removePlayer
+    removePlayer: removePlayer,
+    showFullBoard: showFullBoard,
+    showZoomBoard: showZoomBoard,
+    resetPlayerGraphics: resetPlayerGraphics
 };
