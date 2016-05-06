@@ -7,10 +7,10 @@
 var app = require('../app');
 var debug = require('debug')('untitled1:server');
 var http = require('http');
-
-setInterval(function() {
-    http.get("http://sheltered-tor-10865.herokuapp.com/");
-}, 300000); // e
+//
+//setInterval(function() {
+//    http.get("http://sheltered-tor-10865.herokuapp.com/");
+//}, 300000); // e
 
 /**
  * Get port from environment and store in Express.

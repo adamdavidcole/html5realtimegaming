@@ -17,10 +17,10 @@ var clientSidePrediction = false;
 var reconciliation = false;
 var pending_inputs = [];
 
-var room;
+var roomname;
 var username;
 
-var socket = io.connect("http://sheltered-tor-10865.herokuapp.com/");
+var socket = io.connect("http://10.0.1.4:3000");
 
 var init = function() {
     //renderer.init();
@@ -47,10 +47,11 @@ var initSocket = function() {
     socket.on('onJoinedRoom', function (data) {
         game = new Game(data.roomid, data.hostid, userid);
         game.applyState(data.state);
-        renderer.init(game);
+        renderer.init(game, userid);
         if (game.gameStatus === gameStatus.PLAY) renderer.removePlayer(game.getPlayer(userid));
         hideWelcomeScreen();
-        showGameMenuScreen(data.roomname, data.state);
+        roomname = data.roomname;
+        showGameMenuScreen(data.state);
         //beginClientUpdateLoop();
     });
 
@@ -287,7 +288,7 @@ var hideWelcomeScreen = function() {
     $('#game-list-container').hide();
 };
 
-var showGameMenuScreen = function(roomname, state) {
+var showGameMenuScreen = function(state) {
     if (!state) state = game.getGameState();
     $('#game-menu-container').show();
     if (game.getPlayers().length > 1) toggleStartButton(true);
