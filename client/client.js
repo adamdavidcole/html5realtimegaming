@@ -6,6 +6,7 @@ var renderer = require('./gameRenderer');
 var inputHandler = require('./inputHandler');
 var Game = require('../shared/Game');
 var playerStatus = require('../shared/constants').playerStatus;
+var gameStatus = require('../shared/constants').gameStatus;
 var game// = renderer.getGame();
 
 var clientUpdateLoop;
@@ -39,6 +40,7 @@ var initSocket = function() {
         game = new Game(data.roomid, data.hostid, userid);
         game.applyState(data.state);
         renderer.init(game);
+        if (game.gameStatus === gameStatus.PLAY) renderer.removePlayer(game.getPlayer(userid));
         hideWelcomeScreen();
         showGameMenuScreen(data.state);
         //beginClientUpdateLoop();
@@ -58,6 +60,7 @@ var initSocket = function() {
     });
 
     socket.on('onShowWelcomeScreen', function(data) {
+        hideGameMenuScreen();
         showWelcomeScreen(data.rooms);
     });
 
@@ -65,13 +68,20 @@ var initSocket = function() {
         console.log("adding new player:", data);
         game.applyState(data.state);
         displayPlayers(data.state.players);
+        if (game.getPlayers().length > 1) toggleStartButton(true);
+        else toggleStartButton(false);
     });
 
     socket.on('onPlayerExit', function (data) {
         console.log("removing player from room");
         updatePlayersReminingField();
+        renderer.removePlayer(game.getPlayer(data.removedPlayerId));
+        game.removePlayerFromRoom(data.removedPlayerId);
         game.applyState(data.state);
         displayPlayers(data.state.players);
+        console.log(game.getPlayers().length);
+        if (game.getPlayers().length > 1) toggleStartButton(true);
+        else toggleStartButton(false);
     });
 
     socket.on('ondisconnect', function(data) {
@@ -81,9 +91,9 @@ var initSocket = function() {
 
     socket.on('onStartGame', function(data) {
         game.applyState(data.state);
-        renderer.resetPlayerGraphics(game.getPlayers());
-        renderer.showZoomBoard();
         startGame();
+        renderer.showZoomBoard();
+        renderer.resetPlayerGraphics(game.getPlayers());
     });
 
     socket.on('onGameWon', function(data) {
@@ -111,8 +121,8 @@ var initSocket = function() {
         }
         if (changedState.removed.length !== 0) {
             changedState.removed.forEach(function (removedPlayer) {
-                game.removePlayerFromRoom(removedPlayer.userid);
                 renderer.removePlayer(removedPlayer);
+                game.removePlayerFromRoom(removedPlayer.userid);
             });
             updatePlayersReminingField();
         };
@@ -189,11 +199,12 @@ var attachEventHandlers = function() {
     });
 
     $('#game-exit-button').click(function() {
-        hideGameMenuScreen();
+       // hideGameMenuScreen();
         socket.emit('showWelcomeScreen', {userid: userid, roomid: game.getRoomId()});
     });
 
     $('#game-start-button').click(function() {
+        if (game.getPlayers().length < 2 || game.gameStatus === gameStatus.PLAY) return;
         socket.emit('requestToBeginGame', {userid: userid, roomid: game.getRoomId()});
     });
 
@@ -204,6 +215,21 @@ var attachEventHandlers = function() {
 
     $('#player-outcome-x').click(function() {
        $('#player-outcome-container').hide();
+    });
+
+    $('#game-spectate-button').click(function() {
+        hideGameMenuScreen();
+        showGameScreen();
+        renderer.showFullBoard();
+    });
+
+    $('#goto-menu').click(function (){
+        showGameMenuScreen();
+    });
+
+    $('#game-resume-button').click(function() {
+        hideGameMenuScreen();
+        showGameScreen();
     });
 };
 
@@ -237,11 +263,43 @@ var hideWelcomeScreen = function() {
 };
 
 var showGameMenuScreen = function(state) {
+    if (!state) state = game.getGameState();
     $('#game-menu-container').show();
+    if (game.getPlayers().length > 1) toggleStartButton(true);
+    else toggleStartButton(false);
     displayPlayers(state.players);
+    setSpectateButton();
+};
+
+var toggleStartButton = function(activate) {
+    if (!game) $('#game-start-button').css('background-color', 'rgba(0,0,0,.3)');
+    else if (game.gameStatus === gameStatus.PLAY) $('#game-start-button').css('background-color', 'rgba(0,0,0,.3)');
+    else if (game.getPlayers().length < 2) $('#game-start-button').css('background-color', 'rgba(0,0,0,.3)');
+    else $('#game-start-button').css('background-color', 'rgba(0,0,0,1)');
+};
+
+var setSpectateButton = function() {
+    console.log(game.gameStatus);
+    if (game.gameStatus === gameStatus.WAIT) {
+        console.log("hide spectate");
+        $('#game-spectate-button').hide();
+        $('#game-resume-button').hide();
+    }
+    else if (game.gameStatus === gameStatus.PLAY) {
+        console.log("show spectate");
+        console.log(game.getPlayer(userid).playerStatus);
+        if (game.getPlayer(userid).playerStatus === playerStatus.ALIVE) {
+            $('#game-resume-button').show();
+            $('#game-spectate-button').hide();
+        } else {
+            $('#game-resume-button').hide();
+            $('#game-spectate-button').show();
+        }
+    }
 };
 
 var hideGameMenuScreen = function() {
+    hideGameScreen();
     $('#game-menu-container').hide();
 };
 
@@ -294,6 +352,7 @@ var updatePlayersReminingField = function() {
 };
 
 var startGame = function() {
+    game.startGame();
     hideGameMenuScreen();
     showGameScreen();
     beginClientUpdateLoop();

@@ -34,11 +34,12 @@ var initIO = function(io) {
             var room = rooms[data.roomid];
             if (!room || !room.game) {
                 socket.emit("onRoomNoLongerExists", {rooms: getRoomsInfo()});
-            } else {
+            } else if (isUserInRoom(room, socket.userid)) return;
+            else {
                 room.game.createPlayer(data.userid);
                 //lastProcessedInput[socket.userid] = 0;
                 var state = room.game.getGameState();
-                socket.emit("onJoinedRoom", {roomid: room.roomid, host: room.hostid, state: room.game.getGameState()});
+                socket.emit("onJoinedRoom", {roomid: room.roomid, host: room.hostid, state: room.game.getGameState(), gameStatus: room.game.gameStatus});
                 room.game.getPlayers().forEach(function (player) {
                     if (player.userid !== data.userid) {
                         var playerSocket = sockets[player.userid];
@@ -74,7 +75,6 @@ var initIO = function(io) {
             console.log('show welcome screen');
             var room = rooms[data.roomid];
             removePlayerFromRoom(room.roomid, data.userid);
-            // HANDLE HOST LEAVING GAME
             socket.emit('onShowWelcomeScreen', {rooms: getRoomsInfo()});
         });
 
@@ -163,7 +163,7 @@ var removePlayerFromRoom = function(roomid, userid) {
             console.log("notify players of player exit");
             room.game.getPlayers().forEach(function(player) {
                 var playerSocket = sockets[player.userid];
-                playerSocket.emit("onPlayerExit", {state: room.game.getGameState()});
+                playerSocket.emit("onPlayerExit", {state: room.game.getGameState(), removedPlayerId: userid});
             });
         }
     }
@@ -189,6 +189,17 @@ var getRoomsInfo = function() {
     }
     return roomsInfo;
 };
+
+var isUserInRoom = function(room, userid) {
+    if (!room || !room.game) return false;
+    else {
+        var players = room.game.getPlayers();
+        for (var i = 0; i < players.length; i++) {
+            if (players[i].userid === userid) return true;
+        }
+    }
+    return false;
+}
 
 module.exports = {
     init: init

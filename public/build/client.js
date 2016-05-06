@@ -7,6 +7,7 @@ var renderer = require('./gameRenderer');
 var inputHandler = require('./inputHandler');
 var Game = require('../shared/Game');
 var playerStatus = require('../shared/constants').playerStatus;
+var gameStatus = require('../shared/constants').gameStatus;
 var game// = renderer.getGame();
 
 var clientUpdateLoop;
@@ -40,6 +41,7 @@ var initSocket = function() {
         game = new Game(data.roomid, data.hostid, userid);
         game.applyState(data.state);
         renderer.init(game);
+        if (game.gameStatus === gameStatus.PLAY) renderer.removePlayer(game.getPlayer(userid));
         hideWelcomeScreen();
         showGameMenuScreen(data.state);
         //beginClientUpdateLoop();
@@ -59,6 +61,7 @@ var initSocket = function() {
     });
 
     socket.on('onShowWelcomeScreen', function(data) {
+        hideGameMenuScreen();
         showWelcomeScreen(data.rooms);
     });
 
@@ -66,13 +69,20 @@ var initSocket = function() {
         console.log("adding new player:", data);
         game.applyState(data.state);
         displayPlayers(data.state.players);
+        if (game.getPlayers().length > 1) toggleStartButton(true);
+        else toggleStartButton(false);
     });
 
     socket.on('onPlayerExit', function (data) {
         console.log("removing player from room");
         updatePlayersReminingField();
+        renderer.removePlayer(game.getPlayer(data.removedPlayerId));
+        game.removePlayerFromRoom(data.removedPlayerId);
         game.applyState(data.state);
         displayPlayers(data.state.players);
+        console.log(game.getPlayers().length);
+        if (game.getPlayers().length > 1) toggleStartButton(true);
+        else toggleStartButton(false);
     });
 
     socket.on('ondisconnect', function(data) {
@@ -82,9 +92,9 @@ var initSocket = function() {
 
     socket.on('onStartGame', function(data) {
         game.applyState(data.state);
-        renderer.resetPlayerGraphics(game.getPlayers());
-        renderer.showZoomBoard();
         startGame();
+        renderer.showZoomBoard();
+        renderer.resetPlayerGraphics(game.getPlayers());
     });
 
     socket.on('onGameWon', function(data) {
@@ -112,8 +122,8 @@ var initSocket = function() {
         }
         if (changedState.removed.length !== 0) {
             changedState.removed.forEach(function (removedPlayer) {
-                game.removePlayerFromRoom(removedPlayer.userid);
                 renderer.removePlayer(removedPlayer);
+                game.removePlayerFromRoom(removedPlayer.userid);
             });
             updatePlayersReminingField();
         };
@@ -190,11 +200,12 @@ var attachEventHandlers = function() {
     });
 
     $('#game-exit-button').click(function() {
-        hideGameMenuScreen();
+       // hideGameMenuScreen();
         socket.emit('showWelcomeScreen', {userid: userid, roomid: game.getRoomId()});
     });
 
     $('#game-start-button').click(function() {
+        if (game.getPlayers().length < 2 || game.gameStatus === gameStatus.PLAY) return;
         socket.emit('requestToBeginGame', {userid: userid, roomid: game.getRoomId()});
     });
 
@@ -205,6 +216,21 @@ var attachEventHandlers = function() {
 
     $('#player-outcome-x').click(function() {
        $('#player-outcome-container').hide();
+    });
+
+    $('#game-spectate-button').click(function() {
+        hideGameMenuScreen();
+        showGameScreen();
+        renderer.showFullBoard();
+    });
+
+    $('#goto-menu').click(function (){
+        showGameMenuScreen();
+    });
+
+    $('#game-resume-button').click(function() {
+        hideGameMenuScreen();
+        showGameScreen();
     });
 };
 
@@ -238,11 +264,43 @@ var hideWelcomeScreen = function() {
 };
 
 var showGameMenuScreen = function(state) {
+    if (!state) state = game.getGameState();
     $('#game-menu-container').show();
+    if (game.getPlayers().length > 1) toggleStartButton(true);
+    else toggleStartButton(false);
     displayPlayers(state.players);
+    setSpectateButton();
+};
+
+var toggleStartButton = function(activate) {
+    if (!game) $('#game-start-button').css('background-color', 'rgba(0,0,0,.3)');
+    else if (game.gameStatus === gameStatus.PLAY) $('#game-start-button').css('background-color', 'rgba(0,0,0,.3)');
+    else if (game.getPlayers().length < 2) $('#game-start-button').css('background-color', 'rgba(0,0,0,.3)');
+    else $('#game-start-button').css('background-color', 'rgba(0,0,0,1)');
+};
+
+var setSpectateButton = function() {
+    console.log(game.gameStatus);
+    if (game.gameStatus === gameStatus.WAIT) {
+        console.log("hide spectate");
+        $('#game-spectate-button').hide();
+        $('#game-resume-button').hide();
+    }
+    else if (game.gameStatus === gameStatus.PLAY) {
+        console.log("show spectate");
+        console.log(game.getPlayer(userid).playerStatus);
+        if (game.getPlayer(userid).playerStatus === playerStatus.ALIVE) {
+            $('#game-resume-button').show();
+            $('#game-spectate-button').hide();
+        } else {
+            $('#game-resume-button').hide();
+            $('#game-spectate-button').show();
+        }
+    }
 };
 
 var hideGameMenuScreen = function() {
+    hideGameScreen();
     $('#game-menu-container').hide();
 };
 
@@ -295,6 +353,7 @@ var updatePlayersReminingField = function() {
 };
 
 var startGame = function() {
+    game.startGame();
     hideGameMenuScreen();
     showGameScreen();
     beginClientUpdateLoop();
@@ -436,7 +495,7 @@ var createBackground = function() {
 var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
-        if (body.playerStatus && body.playerStatus === playerStatus.DEAD) {
+        if (body.playerStatus && body.playerStatus !== playerStatus.ALIVE) {
             var graphicsObj = graphicObjs[body.id];
             if (graphicsObj) graphicsObj.graphics.clear();
             return;
@@ -491,6 +550,7 @@ var checkForRemovedPlayers = function() {
 
 var resetPlayerGraphics = function(players) {
     players.forEach(function (player) {
+        console.log("resetgraphics");
         removePlayer(player);
         newPlayer(player);
     });
@@ -14392,6 +14452,7 @@ var p2 = require('p2');
 var inputTypes = require('./constants').inputTypes;
 var bodyTypes = require('./constants').bodyTypes;
 var playerStatus = require('./constants').playerStatus;
+var gameStatus = require('./constants').gameStatus;
 
 var worldWidth = 900;
 var worldHeight = 900;
@@ -14437,7 +14498,7 @@ var Game = function(roomid, hostid, userid) {
             if (data.bodyA.bodyType !== bodyTypes.PUCK &&
                 data.bodyB.bodyType !== bodyTypes.PUCK) return;
             var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
-            if (nonPuckBody.bodyType === bodyTypes.PLAYER) {
+            if (nonPuckBody.bodyType === bodyTypes.PLAYER && nonPuckBody.playerStatus === playerStatus.ALIVE) {
                 that.removePlayer(nonPuckBody);
             }
         }
@@ -14493,7 +14554,7 @@ Game.prototype.createPlayer = function(_userid, x, y) {
     playerBody.bodyType = bodyTypes.PLAYER;
     playerBody.playerStatus = playerStatus.IDLE;
     playerBody.userid = _userid;
-    this.world.addBody(playerBody);
+    if (!(this.gameStatus === gameStatus.PLAY)) this.world.addBody(playerBody);
     this.players.push(playerBody);
     if (this.userid === _userid) this.thisPlayer = playerBody;
     return playerBody;
@@ -14712,6 +14773,7 @@ Game.prototype.getGameState = function() {
         var sBody = that.serializeBody(player);
         state.players.push(sBody);
     });
+    state.gameStatus = this.gameStatus;
     return state;
 };
 
@@ -14724,6 +14786,7 @@ Game.prototype.applyState = function(state) {
         if (!playerBody) playerBody = that.createPlayer(playerState.userid);
         that.applyStateToBody(playerState, playerBody);
     });
+    this.gameStatus = state.gameStatus;
 };
 
 Game.prototype.startGame = function() {
@@ -14733,7 +14796,10 @@ Game.prototype.startGame = function() {
         player.playerStatus = playerStatus.ALIVE;
         player.velocity = [0,0];
         player.angularVelocity = 0;
-        if (!that.isPlayerInWorld(player)) that.world.addBody(player);
+        if (!that.isPlayerInWorld(player)) {
+            that.world.addBody(player);
+            console.log("body ADDED to world");
+        }
     });
     this.initializePlayerPositions();
 };
@@ -14828,7 +14894,7 @@ exports.playerStatus = {
 };
 
 exports.gameStatus = {
-    PLAY: "active",
-    WAIT: "waiting"
+    PLAY: "play",
+    WAIT: "wait"
 };
 },{}]},{},[1]);

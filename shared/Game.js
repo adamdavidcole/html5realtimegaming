@@ -5,6 +5,7 @@ var p2 = require('p2');
 var inputTypes = require('./constants').inputTypes;
 var bodyTypes = require('./constants').bodyTypes;
 var playerStatus = require('./constants').playerStatus;
+var gameStatus = require('./constants').gameStatus;
 
 var worldWidth = 900;
 var worldHeight = 900;
@@ -50,7 +51,7 @@ var Game = function(roomid, hostid, userid) {
             if (data.bodyA.bodyType !== bodyTypes.PUCK &&
                 data.bodyB.bodyType !== bodyTypes.PUCK) return;
             var nonPuckBody = data.bodyA.bodyType === bodyTypes.PUCK ? data.bodyB : data.bodyA;
-            if (nonPuckBody.bodyType === bodyTypes.PLAYER) {
+            if (nonPuckBody.bodyType === bodyTypes.PLAYER && nonPuckBody.playerStatus === playerStatus.ALIVE) {
                 that.removePlayer(nonPuckBody);
             }
         }
@@ -106,7 +107,7 @@ Game.prototype.createPlayer = function(_userid, x, y) {
     playerBody.bodyType = bodyTypes.PLAYER;
     playerBody.playerStatus = playerStatus.IDLE;
     playerBody.userid = _userid;
-    this.world.addBody(playerBody);
+    if (!(this.gameStatus === gameStatus.PLAY)) this.world.addBody(playerBody);
     this.players.push(playerBody);
     if (this.userid === _userid) this.thisPlayer = playerBody;
     return playerBody;
@@ -325,6 +326,7 @@ Game.prototype.getGameState = function() {
         var sBody = that.serializeBody(player);
         state.players.push(sBody);
     });
+    state.gameStatus = this.gameStatus;
     return state;
 };
 
@@ -337,6 +339,7 @@ Game.prototype.applyState = function(state) {
         if (!playerBody) playerBody = that.createPlayer(playerState.userid);
         that.applyStateToBody(playerState, playerBody);
     });
+    this.gameStatus = state.gameStatus;
 };
 
 Game.prototype.startGame = function() {
@@ -346,7 +349,10 @@ Game.prototype.startGame = function() {
         player.playerStatus = playerStatus.ALIVE;
         player.velocity = [0,0];
         player.angularVelocity = 0;
-        if (!that.isPlayerInWorld(player)) that.world.addBody(player);
+        if (!that.isPlayerInWorld(player)) {
+            that.world.addBody(player);
+            console.log("body ADDED to world");
+        }
     });
     this.initializePlayerPositions();
 };

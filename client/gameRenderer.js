@@ -107,7 +107,7 @@ var createBackground = function() {
 var drawBodies = function() {
     game.getWorld().bodies.forEach(function(body) {
         if (!body.bodyType) return;
-        if (body.playerStatus && body.playerStatus === playerStatus.DEAD) {
+        if (body.playerStatus && body.playerStatus !== playerStatus.ALIVE) {
             var graphicsObj = graphicObjs[body.id];
             if (graphicsObj) graphicsObj.graphics.clear();
             return;
@@ -162,6 +162,7 @@ var checkForRemovedPlayers = function() {
 
 var resetPlayerGraphics = function(players) {
     players.forEach(function (player) {
+        console.log("resetgraphics");
         removePlayer(player);
         newPlayer(player);
     });
