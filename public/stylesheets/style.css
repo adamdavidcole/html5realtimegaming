@@ -1,5 +1,12 @@
 /* WELCOME PAGE */
+html {
+    /*height: 100%;*/
+    /*width: 100%;*/
+}
+
 body {
+    /*height: 100%;*/
+    /*width: 100%;*/
     /*background-color: white;*/
 }
 
@@ -58,6 +65,7 @@ body {
     border-radius: 5px;
     align-self: center;
     margin-bottom: 20px;
+    display: none;
 }
 
 #create-room-button {
@@ -71,6 +79,7 @@ body {
     max-width: 400px;
     background-color: black;
     border-radius: 5px;
+    display: none;
 }
 
 #game-list {
@@ -118,11 +127,13 @@ canvas {
     border-radius: 5px;
 }
 
-#players-in-room h3 {
+h3 {
     text-align: left;
     padding: 15px 20px;
     margin-bottom: 0;
     border-bottom: 3px solid white;
+    color: white;
+    margin-top: 0;
 }
 
 #players-in-room li {
@@ -192,4 +203,52 @@ canvas {
     line-height: 200px;
     letter-spacing: 1px;
     word-spacing: 2px;
+
 }
+
+#name-input-container {
+    align-self: center;
+    width: 100%;
+    max-width: 300px;
+    background-color: black;
+    color: black;
+    border-radius: 5px;
+
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    flex-direction: column;
+
+    display: none;
+}
+
+#name-input-description {
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 15px;
+
+    display: block;
+    text-align: left;
+    width: 100%;
+
+}
+
+#name-input {
+    align-self: center;
+    margin-bottom: 15px;
+}
+
+#name-submit {
+    align-self: center;
+    background-color: white;
+    border-radius: 5px;
+    text-align: center;
+    padding: 5px;
+    color: black;
+    margin-bottom: 15px;
+    padding: 5px 15px;
+    text-transform: capitalize;
+}
+
+

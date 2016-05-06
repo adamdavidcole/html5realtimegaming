@@ -11,6 +11,7 @@ var playerStatus = require('../shared/constants').playerStatus;
 var sockets = {};
 var lastProcessedInput = {};
 var rooms = {};
+var usernames = {};
 var roomCount = 0;
 
 var init = function(_io) {
@@ -36,10 +37,11 @@ var initIO = function(io) {
                 socket.emit("onRoomNoLongerExists", {rooms: getRoomsInfo()});
             } else if (isUserInRoom(room, socket.userid)) return;
             else {
-                room.game.createPlayer(data.userid);
+                console.log("username ", usernames[data.userid]);
+                room.game.createPlayer(data.userid, usernames[data.userid]);
                 //lastProcessedInput[socket.userid] = 0;
                 var state = room.game.getGameState();
-                socket.emit("onJoinedRoom", {roomid: room.roomid, host: room.hostid, state: room.game.getGameState(), gameStatus: room.game.gameStatus});
+                socket.emit("onJoinedRoom", {roomid: room.roomid, roomname: room.roomname, host: room.hostid, state: room.game.getGameState(), gameStatus: room.game.gameStatus});
                 room.game.getPlayers().forEach(function (player) {
                     if (player.userid !== data.userid) {
                         var playerSocket = sockets[player.userid];
@@ -58,6 +60,13 @@ var initIO = function(io) {
             socket.broadcast.emit("ondisconnect", {userid: socket.userid});
         });
 
+        socket.on('submitName', function(data) {
+            socket.username = data.username;
+            usernames[data.userid] = data.username;
+            console.log(usernames[data.userid]);
+            socket.emit('onSubmitName', {username: data.username, rooms: getRoomsInfo()});
+        });
+
         socket.on('clientInput', function(data) {
             //lastProcessedInput[data.clientInput.userid] = data.clientInput.inputSequenceNumber;
             var room = rooms[data.roomid];
@@ -67,7 +76,7 @@ var initIO = function(io) {
         socket.on('createRoom', function(data) {
             console.log("create room");
             var room = createRoom(data.userid);
-            socket.emit("onJoinedRoom", {roomid: room.roomid, host: room.hostid, state: room.game.getGameState()});
+            socket.emit("onJoinedRoom", {roomid: room.roomid, roomname: room.roomname, host: room.hostid, state: room.game.getGameState()});
             io.sockets.emit('onRoomCreated', {rooms: getRoomsInfo()});
         });
 
@@ -130,11 +139,12 @@ var createRoom = function(userid) {
     var newRoomId = uuid();
     var game = new Game(newRoomId, userid);
     game.gameStatus = gameStatus.WAIT;
-    game.createPlayer(userid);
+    game.createPlayer(userid, usernames[userid]);
     var room = {
         game: game,
         roomid: newRoomId,
-        hostid: userid
+        hostid: userid,
+        roomname: usernames[userid] + "'s room"
     };
     rooms[newRoomId] = room;
     roomCount++;
@@ -185,7 +195,7 @@ var getRoomsInfo = function() {
     var roomsInfo = [];
     for (roomid in rooms) {
         var room = rooms[roomid];
-        roomsInfo.push({roomid: room.roomid, hostid: room.hostid, state: room.game.getGameState()});
+        roomsInfo.push({roomid: room.roomid, hostid: room.hostid, state: room.game.getGameState(), roomname: room.roomname});
     }
     return roomsInfo;
 };

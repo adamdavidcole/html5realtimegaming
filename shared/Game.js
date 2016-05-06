@@ -82,7 +82,7 @@ Game.prototype.createPuck = function() {
 };
 
 
-Game.prototype.createPlayer = function(_userid, x, y) {
+Game.prototype.createPlayer = function(_userid, _username, x, y) {
     if (!x || !y) {
         x = 0;
         y = 0;
@@ -107,6 +107,8 @@ Game.prototype.createPlayer = function(_userid, x, y) {
     playerBody.bodyType = bodyTypes.PLAYER;
     playerBody.playerStatus = playerStatus.IDLE;
     playerBody.userid = _userid;
+    playerBody.username = _username;
+    console.log(playerBody.username);
     if (!(this.gameStatus === gameStatus.PLAY)) this.world.addBody(playerBody);
     this.players.push(playerBody);
     if (this.userid === _userid) this.thisPlayer = playerBody;
@@ -290,6 +292,7 @@ Game.prototype.serializeBody = function(body) {
     sBody.vlambda = [body.vlambda[0], body.vlambda[1]];
     sBody.wlambda = body.wlambda;
     sBody.userid = body.userid;
+    sBody.username = body.username;
     sBody.bodyType = body.bodyType;
     if (body.bodyType === bodyTypes.PLAYER) {
         sBody.playerStatus = body.playerStatus;
@@ -311,6 +314,7 @@ Game.prototype.applyStateToBody = function(sBody, body) {
     body.vlambda = [sBody.vlambda[0], sBody.vlambda[1]]
     body.wlambda = sBody.wlambda;
     body.userid = sBody.userid;
+    body.username = sBody.username;
     body.bodyType = sBody.bodyType;
     if (body.bodyType === bodyTypes.PLAYER) {
         body.playerStatus = sBody.playerStatus;
@@ -336,7 +340,7 @@ Game.prototype.applyState = function(state) {
     var that = this;
     state.players.forEach(function (playerState) {
         var playerBody = that.getPlayer(playerState.userid);
-        if (!playerBody) playerBody = that.createPlayer(playerState.userid);
+        if (!playerBody) playerBody = that.createPlayer(playerState.userid, playerState.username);
         that.applyStateToBody(playerState, playerBody);
     });
     this.gameStatus = state.gameStatus;
