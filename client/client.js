@@ -18,8 +18,9 @@ var reconciliation = false;
 var pending_inputs = [];
 
 var room;
+var username;
 
-var socket = io.connect("http://sheltered-tor-10865.herokuapp.com/");
+var socket = io.connect("http://10.0.1.4:3000");
 
 var init = function() {
     //renderer.init();
@@ -32,8 +33,15 @@ var initSocket = function() {
     socket.on('onconnected', function (data) {
         console.log("connected to server with id: " + data.userid);
         userid = data.userid;
-        displayRooms(data.rooms);
+        showInputName();
+        //displayRooms(data.rooms);
         //socket.emit('requestToJoinRoom', {userid: userid});
+    });
+
+    socket.on('onSubmitName', function(data) {
+        username = data.username;
+        hideInputName();
+        showWelcomeScreen(data.rooms);
     });
 
     socket.on('onJoinedRoom', function (data) {
@@ -42,7 +50,7 @@ var initSocket = function() {
         renderer.init(game);
         if (game.gameStatus === gameStatus.PLAY) renderer.removePlayer(game.getPlayer(userid));
         hideWelcomeScreen();
-        showGameMenuScreen(data.state);
+        showGameMenuScreen(data.roomname, data.state);
         //beginClientUpdateLoop();
     });
 
@@ -231,6 +239,15 @@ var attachEventHandlers = function() {
         hideGameMenuScreen();
         showGameScreen();
     });
+
+    $('#name-submit').click(function () {
+        var inputVal = $('#name-input').val();
+        if (!inputVal || inputVal.trim().length === 0) return;
+        else {
+            username = inputVal;
+            socket.emit('submitName', {userid: userid, username: username});
+        }
+    });
 };
 
 var displayRooms = function(rooms) {
@@ -238,7 +255,7 @@ var displayRooms = function(rooms) {
     if (rooms.length === 0) $('#game-list').append($('<li>').text('No Games in Session'));
     rooms.forEach(function(room) {
         var item =  $('<li>');
-        item.text(room.roomid);
+        item.text(room.roomname);
         item.attr('data-roomid', room.roomid);
         $('#game-list').append(item);
     });
@@ -247,8 +264,16 @@ var displayRooms = function(rooms) {
 var displayPlayers = function(players) {
     $('#players-in-room ul').empty();
     players.forEach(function (player) {
-       $('#players-in-room ul').append($('<li>').text(player.userid));
+       $('#players-in-room ul').append($('<li>').text(player.username));
     });
+};
+
+var showInputName = function() {
+    $('#name-input-container').css('display', 'flex');
+};
+
+var hideInputName = function() {
+    $('#name-input-container').css('display', 'none');
 };
 
 var showWelcomeScreen = function(rooms) {
@@ -262,11 +287,12 @@ var hideWelcomeScreen = function() {
     $('#game-list-container').hide();
 };
 
-var showGameMenuScreen = function(state) {
+var showGameMenuScreen = function(roomname, state) {
     if (!state) state = game.getGameState();
     $('#game-menu-container').show();
     if (game.getPlayers().length > 1) toggleStartButton(true);
     else toggleStartButton(false);
+    $('#players-in-room h3').text("Players in " + roomname);
     displayPlayers(state.players);
     setSpectateButton();
 };
@@ -338,7 +364,8 @@ var hideGameHeader = function() {
 };
 
 var showGameOver = function(winnerid) {
-    $('#game-over-container').text(winnerid + " WINS!");
+    var winner = game.getPlayer(winnerid);
+    $('#game-over-container').text(winner.username + " WINS!");
     $('#game-over-container').show();
 }
 

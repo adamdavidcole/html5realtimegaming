@@ -19,8 +19,9 @@ var reconciliation = false;
 var pending_inputs = [];
 
 var room;
+var username;
 
-var socket = io.connect("http://sheltered-tor-10865.herokuapp.com/");
+var socket = io.connect("http://10.0.1.4:3000");
 
 var init = function() {
     //renderer.init();
@@ -33,8 +34,15 @@ var initSocket = function() {
     socket.on('onconnected', function (data) {
         console.log("connected to server with id: " + data.userid);
         userid = data.userid;
-        displayRooms(data.rooms);
+        showInputName();
+        //displayRooms(data.rooms);
         //socket.emit('requestToJoinRoom', {userid: userid});
+    });
+
+    socket.on('onSubmitName', function(data) {
+        username = data.username;
+        hideInputName();
+        showWelcomeScreen(data.rooms);
     });
 
     socket.on('onJoinedRoom', function (data) {
@@ -43,7 +51,7 @@ var initSocket = function() {
         renderer.init(game);
         if (game.gameStatus === gameStatus.PLAY) renderer.removePlayer(game.getPlayer(userid));
         hideWelcomeScreen();
-        showGameMenuScreen(data.state);
+        showGameMenuScreen(data.roomname, data.state);
         //beginClientUpdateLoop();
     });
 
@@ -232,6 +240,15 @@ var attachEventHandlers = function() {
         hideGameMenuScreen();
         showGameScreen();
     });
+
+    $('#name-submit').click(function () {
+        var inputVal = $('#name-input').val();
+        if (!inputVal || inputVal.trim().length === 0) return;
+        else {
+            username = inputVal;
+            socket.emit('submitName', {userid: userid, username: username});
+        }
+    });
 };
 
 var displayRooms = function(rooms) {
@@ -239,7 +256,7 @@ var displayRooms = function(rooms) {
     if (rooms.length === 0) $('#game-list').append($('<li>').text('No Games in Session'));
     rooms.forEach(function(room) {
         var item =  $('<li>');
-        item.text(room.roomid);
+        item.text(room.roomname);
         item.attr('data-roomid', room.roomid);
         $('#game-list').append(item);
     });
@@ -248,8 +265,16 @@ var displayRooms = function(rooms) {
 var displayPlayers = function(players) {
     $('#players-in-room ul').empty();
     players.forEach(function (player) {
-       $('#players-in-room ul').append($('<li>').text(player.userid));
+       $('#players-in-room ul').append($('<li>').text(player.username));
     });
+};
+
+var showInputName = function() {
+    $('#name-input-container').css('display', 'flex');
+};
+
+var hideInputName = function() {
+    $('#name-input-container').css('display', 'none');
 };
 
 var showWelcomeScreen = function(rooms) {
@@ -263,11 +288,12 @@ var hideWelcomeScreen = function() {
     $('#game-list-container').hide();
 };
 
-var showGameMenuScreen = function(state) {
+var showGameMenuScreen = function(roomname, state) {
     if (!state) state = game.getGameState();
     $('#game-menu-container').show();
     if (game.getPlayers().length > 1) toggleStartButton(true);
     else toggleStartButton(false);
+    $('#players-in-room h3').text("Players in " + roomname);
     displayPlayers(state.players);
     setSpectateButton();
 };
@@ -339,7 +365,8 @@ var hideGameHeader = function() {
 };
 
 var showGameOver = function(winnerid) {
-    $('#game-over-container').text(winnerid + " WINS!");
+    var winner = game.getPlayer(winnerid);
+    $('#game-over-container').text(winner.username + " WINS!");
     $('#game-over-container').show();
 }
 
@@ -14529,7 +14556,7 @@ Game.prototype.createPuck = function() {
 };
 
 
-Game.prototype.createPlayer = function(_userid, x, y) {
+Game.prototype.createPlayer = function(_userid, _username, x, y) {
     if (!x || !y) {
         x = 0;
         y = 0;
@@ -14554,6 +14581,8 @@ Game.prototype.createPlayer = function(_userid, x, y) {
     playerBody.bodyType = bodyTypes.PLAYER;
     playerBody.playerStatus = playerStatus.IDLE;
     playerBody.userid = _userid;
+    playerBody.username = _username;
+    console.log(playerBody.username);
     if (!(this.gameStatus === gameStatus.PLAY)) this.world.addBody(playerBody);
     this.players.push(playerBody);
     if (this.userid === _userid) this.thisPlayer = playerBody;
@@ -14737,6 +14766,7 @@ Game.prototype.serializeBody = function(body) {
     sBody.vlambda = [body.vlambda[0], body.vlambda[1]];
     sBody.wlambda = body.wlambda;
     sBody.userid = body.userid;
+    sBody.username = body.username;
     sBody.bodyType = body.bodyType;
     if (body.bodyType === bodyTypes.PLAYER) {
         sBody.playerStatus = body.playerStatus;
@@ -14758,6 +14788,7 @@ Game.prototype.applyStateToBody = function(sBody, body) {
     body.vlambda = [sBody.vlambda[0], sBody.vlambda[1]]
     body.wlambda = sBody.wlambda;
     body.userid = sBody.userid;
+    body.username = sBody.username;
     body.bodyType = sBody.bodyType;
     if (body.bodyType === bodyTypes.PLAYER) {
         body.playerStatus = sBody.playerStatus;
@@ -14783,7 +14814,7 @@ Game.prototype.applyState = function(state) {
     var that = this;
     state.players.forEach(function (playerState) {
         var playerBody = that.getPlayer(playerState.userid);
-        if (!playerBody) playerBody = that.createPlayer(playerState.userid);
+        if (!playerBody) playerBody = that.createPlayer(playerState.userid, playerState.username);
         that.applyStateToBody(playerState, playerBody);
     });
     this.gameStatus = state.gameStatus;
