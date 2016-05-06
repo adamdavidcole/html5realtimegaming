@@ -20,7 +20,7 @@ var pending_inputs = [];
 
 var room;
 
-var socket = io.connect("http://10.0.1.4:3000");
+var socket = io.connect("http://sheltered-tor-10865.herokuapp.com/");
 
 var init = function() {
     //renderer.init();
