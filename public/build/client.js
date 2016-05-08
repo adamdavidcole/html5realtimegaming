@@ -21,7 +21,7 @@ var pending_inputs = [];
 var roomname;
 var username;
 
-var socket = io.connect("http://10.0.1.4:3000");
+var socket = io.connect("http://virtual-gaga.herokuapp.com/");
 
 var init = function() {
     //renderer.init();
