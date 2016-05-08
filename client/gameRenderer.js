@@ -190,7 +190,7 @@ var drawBody = function(body, graphics, sprite) {
         if (sprite) {
             sprite.position.x = mpx(body.position[0]);
             sprite.position.y = mpx(body.position[1]);
-            sprite.rotation = body.an√gle;
+            sprite.rotation = body.angle;
         }
     }
 
@@ -326,6 +326,7 @@ var removePlayer = function(player) {
     if (graphicsObj) {
         console.log('clear graphics');
         graphicsObj.graphics.clear();
+        if (graphicsObj.sprite) graphicsObj.sprite.visible = false;
     }
     delete graphicObjs[player.id];
 };

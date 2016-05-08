@@ -124,6 +124,7 @@ var initSocket = function() {
         if (changedState.dead.length !== 0) {
             changedState.dead.forEach(function (deadPlayer) {
                 console.log(deadPlayer);
+                renderer.removePlayer(game.getPlayer(deadPlayer.userid));
                 if (deadPlayer.userid === userid) makePlayerDead();
             });
             updatePlayersReminingField();
@@ -389,6 +390,7 @@ var startGame = function() {
 init();
 
 var makePlayerDead = function() {
+
     showPlayerOutcome(false);
     renderer.showFullBoard();
 };
